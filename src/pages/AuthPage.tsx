@@ -38,12 +38,20 @@ export function AuthPage() {
         setMode('login');
       }
     } catch (error: any) {
-      console.error(error);
+      console.error('Auth Error:', error);
       let message = 'Ocorreu um erro. Tente novamente.';
       if (error.code === 'auth/user-not-found') message = 'Usuário não encontrado.';
       if (error.code === 'auth/wrong-password') message = 'Senha incorreta.';
       if (error.code === 'auth/email-already-in-use') message = 'Este e-mail já está em uso.';
       if (error.code === 'auth/weak-password') message = 'A senha deve ter pelo menos 6 caracteres.';
+      if (error.code === 'auth/operation-not-allowed') message = 'O login com e-mail/senha não está habilitado no Firebase Console.';
+      if (error.code === 'auth/invalid-email') message = 'E-mail inválido.';
+      
+      // If none of the above, show the specific error code to help debugging
+      if (message === 'Ocorreu um erro. Tente novamente.') {
+        message = `Erro (${error.code}): ${error.message}`;
+      }
+      
       toast.error(message);
     } finally {
       setLoading(false);
