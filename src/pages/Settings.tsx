@@ -208,27 +208,43 @@ export function Settings({ settings, onUpdate }: SettingsProps) {
           >
             <Card title="Ajuda & Suporte">
               <div className="space-y-2">
-                <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group">
+                <button 
+                  onClick={() => toast.info('Nossa Central de Ajuda está sendo atualizada com novos tutoriais!')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
+                >
                   <div className="flex items-center gap-3">
                     <HelpCircle size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
                     Central de Ajuda
                   </div>
                   <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
                 </button>
-                <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group">
+                <button 
+                  onClick={() => {
+                    const message = encodeURIComponent('Olá! Preciso de suporte com o NailFinance.');
+                    window.open(`https://wa.me/5549999619123?text=${message}`, '_blank');
+                  }}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
+                >
                   <div className="flex items-center gap-3">
                     <MessageCircle size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
                     Falar com Suporte
                   </div>
                   <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
                 </button>
-                <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group">
+                <button 
+                  onClick={() => toast.info('Os Termos de Uso estão disponíveis no contrato de adesão do serviço.')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
+                >
                   <div className="flex items-center gap-3">
                     <FileText size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
                     Termos de Uso
                   </div>
                   <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
                 </button>
+              </div>
+              <div className="mt-4 p-4 bg-brand-bg rounded-2xl border border-brand-border text-center">
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">WhatsApp Suporte</p>
+                <p className="text-sm font-bold text-brand-primary">(49) 99961-9123</p>
               </div>
             </Card>
           </motion.div>
