@@ -242,10 +242,6 @@ export function Settings({ settings, onUpdate }: SettingsProps) {
                   <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
                 </button>
               </div>
-              <div className="mt-4 p-4 bg-brand-bg rounded-2xl border border-brand-border text-center">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">WhatsApp Suporte</p>
-                <p className="text-sm font-bold text-brand-primary">(49) 99961-9123</p>
-              </div>
             </Card>
           </motion.div>
         </div>

@@ -188,12 +188,9 @@ export function AuthPage() {
           </AnimatePresence>
         </Card>
 
-        <div className="mt-8 space-y-2 text-center">
+        <div className="mt-8 text-center">
           <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em]">
             © 2026 NailFinance • Gestão para Designers
-          </p>
-          <p className="text-[11px] text-gray-400 font-medium">
-            Precisa de ajuda? Suporte: <span className="text-brand-primary font-bold">(49) 99961-9123</span>
           </p>
         </div>
       </motion.div>
