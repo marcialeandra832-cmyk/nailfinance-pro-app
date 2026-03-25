@@ -179,13 +179,23 @@ export function AuthPage() {
                   </button>
                 )}
               </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-center gap-2 text-[11px] text-gray-400">
+                <Sparkles size={12} className="text-brand-primary" />
+                <span>Suporte Técnico: <strong>(49) 99961-9123</strong></span>
+              </div>
             </motion.div>
           </AnimatePresence>
         </Card>
 
-        <p className="text-center text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em] mt-8">
-          © 2026 NailFinance • Gestão para Designers
-        </p>
+        <div className="mt-8 space-y-2 text-center">
+          <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em]">
+            © 2026 NailFinance • Gestão para Designers
+          </p>
+          <p className="text-[11px] text-gray-400 font-medium">
+            Precisa de ajuda? Suporte: <span className="text-brand-primary font-bold">(49) 99961-9123</span>
+          </p>
+        </div>
       </motion.div>
     </div>
   );
