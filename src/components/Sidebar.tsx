@@ -7,6 +7,7 @@ import {
   Sparkles, 
   Settings as SettingsIcon, 
   CreditCard,
+  HelpCircle,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -33,6 +34,7 @@ const MENU_ITEMS = [
   { id: 'ai', label: 'Análise IA', icon: Sparkles },
   { id: 'settings', label: 'Configurações', icon: SettingsIcon },
   { id: 'subscription', label: 'Assinatura', icon: CreditCard },
+  { id: 'faq', label: 'Ajuda (FAQ)', icon: HelpCircle },
 ];
 
 export function Sidebar({ activeTab, setActiveTab, userName, plan }: SidebarProps) {

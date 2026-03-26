@@ -8,9 +8,10 @@ import { toast } from 'sonner';
 interface SettingsProps {
   settings: UserSettings;
   onUpdate: (s: UserSettings) => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export function Settings({ settings, onUpdate }: SettingsProps) {
+export function Settings({ settings, onUpdate, onNavigate }: SettingsProps) {
   const [showSuccess, setShowSuccess] = React.useState(false);
 
   const handleChange = (field: keyof UserSettings, value: any) => {
@@ -209,12 +210,12 @@ export function Settings({ settings, onUpdate }: SettingsProps) {
             <Card title="Ajuda & Suporte">
               <div className="space-y-2">
                 <button 
-                  onClick={() => toast.info('Nossa Central de Ajuda está sendo atualizada com novos tutoriais!')}
+                  onClick={() => onNavigate?.('faq')}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
                 >
                   <div className="flex items-center gap-3">
                     <HelpCircle size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
-                    Central de Ajuda
+                    Central de Ajuda (FAQ)
                   </div>
                   <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
                 </button>

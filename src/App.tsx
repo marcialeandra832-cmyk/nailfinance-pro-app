@@ -9,6 +9,7 @@ import { PersonalCash } from './pages/PersonalCash';
 import { AIAnalysis } from './pages/AIAnalysis';
 import { Settings } from './pages/Settings';
 import { Subscription } from './pages/Subscription';
+import { FAQ } from './pages/FAQ';
 import { Calendar, ChevronLeft, ChevronRight, Bell, Search, User as UserIcon } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -182,9 +183,11 @@ export default function App() {
       case 'ai':
         return <AIAnalysis summary={summary} transactions={transactions} services={services} />;
       case 'settings':
-        return <Settings settings={settings} onUpdate={updateSettings} />;
+        return <Settings settings={settings} onUpdate={updateSettings} onNavigate={setActiveTab} />;
       case 'subscription':
-        return <Subscription />;
+        return <Subscription onNavigate={setActiveTab} />;
+      case 'faq':
+        return <FAQ />;
       default:
         return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
     }

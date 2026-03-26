@@ -1,9 +1,13 @@
 import React from 'react';
-import { ShieldCheck, CreditCard, MessageCircle, Crown, Zap, Smartphone, BarChart3, Users } from 'lucide-react';
+import { ShieldCheck, CreditCard, MessageCircle, Crown, Zap, Smartphone, BarChart3, Users, HelpCircle } from 'lucide-react';
 import { Card, Button, Badge } from '../components/UI';
 import { motion } from 'motion/react';
 
-export function Subscription() {
+interface SubscriptionProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function Subscription({ onNavigate }: SubscriptionProps) {
   const benefits = [
     { text: "Sem planilhas complicadas", icon: Zap },
     { text: "Controle do studio e pessoal", icon: ShieldCheck },
@@ -59,11 +63,25 @@ export function Subscription() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-100">
-                <Button variant="secondary" className="h-14">
+                <Button 
+                  variant="secondary" 
+                  className="h-14"
+                  onClick={() => {
+                    const message = encodeURIComponent('Olá! Gostaria de gerenciar minha assinatura do NailFinance.');
+                    window.open(`https://wa.me/5549999619123?text=${message}`, '_blank');
+                  }}
+                >
                   <CreditCard size={20} />
                   Gerenciar assinatura
                 </Button>
-                <Button variant="outline" className="h-14">
+                <Button 
+                  variant="outline" 
+                  className="h-14"
+                  onClick={() => {
+                    const message = encodeURIComponent('Olá! Preciso de suporte com o NailFinance.');
+                    window.open(`https://wa.me/5549999619123?text=${message}`, '_blank');
+                  }}
+                >
                   <MessageCircle size={20} />
                   Falar com suporte
                 </Button>
@@ -94,18 +112,27 @@ export function Subscription() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card title="Benefícios Ativos" subtitle="Recursos inclusos no seu plano">
-            <div className="space-y-5">
-              {benefits.map((benefit, idx) => (
-                <div key={idx} className="flex items-start gap-4 group">
-                  <div className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-brand-primary shrink-0 transition-transform group-hover:scale-110">
-                    <benefit.icon size={16} />
+            <Card title="Benefícios Ativos" subtitle="Recursos inclusos no seu plano">
+              <div className="space-y-5">
+                {benefits.map((benefit, idx) => (
+                  <div key={idx} className="flex items-start gap-4 group">
+                    <div className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-brand-primary shrink-0 transition-transform group-hover:scale-110">
+                      <benefit.icon size={16} />
+                    </div>
+                    <span className="text-sm font-bold text-brand-navy/80 leading-tight pt-1.5">{benefit.text}</span>
                   </div>
-                  <span className="text-sm font-bold text-brand-navy/80 leading-tight pt-1.5">{benefit.text}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <button 
+                  onClick={() => onNavigate?.('faq')}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-brand-primary hover:underline"
+                >
+                  <HelpCircle size={18} />
+                  Ver perguntas frequentes (FAQ)
+                </button>
+              </div>
+            </Card>
         </motion.div>
       </div>
     </div>
