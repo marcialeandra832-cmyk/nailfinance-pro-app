@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { useFinance } from './hooks/useFinance';
 import { Dashboard } from './pages/Dashboard';
@@ -12,79 +13,14 @@ import { Calendar, ChevronLeft, ChevronRight, Bell, Search, User as UserIcon } f
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import { Badge } from './components/UI';
+import { Badge, Button } from './components/UI';
 import { Toaster, toast } from 'sonner';
 import { useAuth } from './contexts/AuthContext';
 import { AuthPage } from './pages/AuthPage';
 import { Loader2 } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const { user, loading } = useAuth();
-  const { 
-    services, 
-    transactions, 
-    settings, 
-    summary, 
-    selectedMonth, 
-    setSelectedMonth,
-    addService,
-    deleteService,
-    addTransaction,
-    deleteTransaction,
-    updateSettings 
-  } = useFinance();
-
-  // Apply dark mode
-  React.useEffect(() => {
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [settings.darkMode]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-brand-bg flex items-center justify-center">
-        <Loader2 className="animate-spin text-brand-primary" size={48} />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <Toaster position="top-right" richColors />
-        <AuthPage />
-      </>
-    );
-  }
-
-  const renderPage = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
-      case 'catalog':
-        return <Catalog services={services} onAdd={addService} onDelete={deleteService} />;
-      case 'studio':
-        return <StudioCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
-      case 'personal':
-        return <PersonalCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
-      case 'ai':
-        return <AIAnalysis summary={summary} transactions={transactions} services={services} />;
-      case 'settings':
-        return <Settings settings={settings} onUpdate={updateSettings} />;
-      case 'subscription':
-        return <Subscription />;
-      default:
-        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
-    }
-  };
-
-  const nextMonth = () => setSelectedMonth(addMonths(selectedMonth, 1));
-  const prevMonth = () => setSelectedMonth(subMonths(selectedMonth, 1));
-
+function MainLayout({ children, activeTab, setActiveTab, user, settings, selectedMonth, setSelectedMonth, prevMonth, nextMonth }: any) {
   return (
     <div className="flex min-h-screen bg-brand-bg font-sans selection:bg-brand-primary/20 selection:text-brand-primary">
       <Sidebar 
@@ -172,7 +108,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
               >
-                {renderPage()}
+                {children}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -196,5 +132,100 @@ export default function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const { user, loading } = useAuth();
+  const { 
+    services, 
+    transactions, 
+    settings, 
+    summary, 
+    selectedMonth, 
+    setSelectedMonth,
+    addService,
+    deleteService,
+    addTransaction,
+    deleteTransaction,
+    updateSettings 
+  } = useFinance();
+
+  // Apply dark mode
+  React.useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.darkMode]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex items-center justify-center">
+        <Loader2 className="animate-spin text-brand-primary" size={48} />
+      </div>
+    );
+  }
+
+  const renderPage = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
+      case 'catalog':
+        return <Catalog services={services} onAdd={addService} onDelete={deleteService} />;
+      case 'studio':
+        return <StudioCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
+      case 'personal':
+        return <PersonalCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
+      case 'ai':
+        return <AIAnalysis summary={summary} transactions={transactions} services={services} />;
+      case 'settings':
+        return <Settings settings={settings} onUpdate={updateSettings} />;
+      case 'subscription':
+        return <Subscription />;
+      default:
+        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
+    }
+  };
+
+  const nextMonth = () => setSelectedMonth(addMonths(selectedMonth, 1));
+  const prevMonth = () => setSelectedMonth(subMonths(selectedMonth, 1));
+
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster position="top-right" richColors />
+        <Routes>
+          <Route 
+            path="/login" 
+            element={user ? <Navigate to="/" replace /> : <AuthPage />} 
+          />
+          <Route 
+            path="/" 
+            element={
+              !user ? (
+                <Navigate to="/login" replace />
+              ) : (
+                <MainLayout 
+                  activeTab={activeTab} 
+                  setActiveTab={setActiveTab} 
+                  user={user} 
+                  settings={settings}
+                  selectedMonth={selectedMonth}
+                  setSelectedMonth={setSelectedMonth}
+                  prevMonth={prevMonth}
+                  nextMonth={nextMonth}
+                >
+                  {renderPage()}
+                </MainLayout>
+              )
+            } 
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
