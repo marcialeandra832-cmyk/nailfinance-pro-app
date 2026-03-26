@@ -182,7 +182,7 @@ export function AuthPage() {
 
               <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-center gap-2 text-[11px] text-gray-400">
                 <Sparkles size={12} className="text-brand-primary" />
-                <span>Suporte Técnico: <strong>(49) 99961-9123</strong></span>
+                <span>Suporte Técnico: <strong>WhatsApp</strong></span>
               </div>
             </motion.div>
           </AnimatePresence>
