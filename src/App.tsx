@@ -21,6 +21,8 @@ import { AuthPage } from './pages/AuthPage';
 import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+const nailBg = '/nail_bg.png';
+
 function MainLayout({ children, activeTab, setActiveTab, user, settings, selectedMonth, setSelectedMonth, prevMonth, nextMonth }: any) {
   return (
     <div className="flex min-h-screen bg-brand-bg font-sans selection:bg-brand-primary/20 selection:text-brand-primary">
@@ -32,6 +34,15 @@ function MainLayout({ children, activeTab, setActiveTab, user, settings, selecte
       />
       
       <main className="flex-1 h-screen overflow-y-auto relative scroll-smooth bg-brand-bg text-brand-navy">
+        {/* Fundo elegante de unhas, esmaltes e cifrões (suave marca d'água) */}
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-[0.14] dark:opacity-[0.05]"
+          style={{ 
+            backgroundImage: `url(${nailBg})`,
+            backgroundSize: '300px',
+            backgroundRepeat: 'repeat',
+          }}
+        />
         <Toaster position="top-right" richColors />
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 bg-brand-bg/80 backdrop-blur-md border-b border-brand-border px-6 py-4 md:px-12">
@@ -175,13 +186,13 @@ export default function App() {
       case 'dashboard':
         return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
       case 'catalog':
-        return <Catalog services={services} onAdd={addService} onDelete={deleteService} />;
+        return <Catalog services={services} onAdd={addService} onDelete={deleteService} settings={settings} />;
       case 'studio':
         return <StudioCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
       case 'personal':
         return <PersonalCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
       case 'ai':
-        return <AIAnalysis summary={summary} transactions={transactions} services={services} />;
+        return <AIAnalysis summary={summary} transactions={transactions} services={services} settings={settings} />;
       case 'settings':
         return <Settings settings={settings} onUpdate={updateSettings} onNavigate={setActiveTab} />;
       case 'subscription':

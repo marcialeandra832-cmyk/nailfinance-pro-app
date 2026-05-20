@@ -1,5 +1,6 @@
 {
   "name": "NailFinance",
   "description": "Sistema financeiro completo para Nail Designers autônomas controlarem lucros, custos e separarem finanças pessoais do studio.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

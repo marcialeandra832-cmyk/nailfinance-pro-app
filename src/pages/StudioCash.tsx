@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   ArrowUpCircle, 
@@ -269,6 +269,38 @@ export function TransactionModal({ isPersonal, onClose, onSave }: { isPersonal: 
     notes: ''
   });
 
+  const [applyCardFee, setApplyCardFee] = useState(false);
+  const [cardFeePercent, setCardFeePercent] = useState(3.5);
+
+  // Auto set fee percent based on payment method
+  useEffect(() => {
+    if (formData.paymentMethod === 'Cartão de Crédito') {
+      setCardFeePercent(3.5);
+      setApplyCardFee(true);
+    } else if (formData.paymentMethod === 'Cartão de Débito') {
+      setCardFeePercent(1.9);
+      setApplyCardFee(true);
+    } else {
+      setApplyCardFee(false);
+    }
+  }, [formData.paymentMethod]);
+
+  const cardFeeAmount = applyCardFee ? Number(((formData.amount * cardFeePercent) / 100).toFixed(2)) : 0;
+  const netAmount = Number((formData.amount - cardFeeAmount).toFixed(2));
+
+  const handleRegister = () => {
+    const finalAmount = applyCardFee ? netAmount : formData.amount;
+    const notesWithFee = applyCardFee 
+      ? `Valor bruto: R$ ${formData.amount.toFixed(2)} (Taxa de maquininha: ${cardFeePercent}% ou R$ ${cardFeeAmount.toFixed(2)})`
+      : formData.notes;
+
+    onSave({
+      ...formData,
+      amount: finalAmount,
+      notes: notesWithFee
+    });
+  };
+
   const categories = isPersonal 
     ? ['mercado', 'contas', 'transporte', 'saúde', 'lazer', 'retirada do negócio', 'outros']
     : (formData.type === 'entrada' ? STUDIO_ENTRY_CATEGORIES : STUDIO_EXIT_CATEGORIES);
@@ -279,7 +311,7 @@ export function TransactionModal({ isPersonal, onClose, onSave }: { isPersonal: 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
       >
-        <Card className="w-full max-w-lg shadow-2xl border-none p-8">
+        <Card className="w-full max-w-lg shadow-2xl border-none p-8 bg-white rounded-[3rem]">
           <h2 className="text-3xl font-serif font-bold text-brand-navy mb-8">Registrar Movimentação</h2>
           <div className="space-y-6">
             <div className="flex p-1 bg-slate-100 rounded-2xl">
@@ -312,7 +344,7 @@ export function TransactionModal({ isPersonal, onClose, onSave }: { isPersonal: 
 
             <div className="grid grid-cols-2 gap-6">
               <Input 
-                label="Valor (R$)"
+                label={applyCardFee ? "Valor Cobrado R$" : "Valor (R$)"}
                 type="number"
                 value={formData.amount.toString()}
                 onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
@@ -347,9 +379,60 @@ export function TransactionModal({ isPersonal, onClose, onSave }: { isPersonal: 
               )}
             </div>
 
+            {/* Simulated credit card taxes discount box */}
+            {formData.type === 'entrada' && !isPersonal && (formData.paymentMethod === 'Cartão de Crédito' || formData.paymentMethod === 'Cartão de Débito') && (
+              <div className="bg-pink-50/50 rounded-2xl p-4 border border-pink-100 flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-brand-navy">Simular Taxa de Maquininha?</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={applyCardFee}
+                      onChange={e => setApplyCardFee(e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-pink"></div>
+                  </label>
+                </div>
+                
+                {applyCardFee && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-400 font-bold whitespace-nowrap">Taxa da Maquininha (%):</span>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        value={cardFeePercent} 
+                        onChange={e => setCardFeePercent(Number(e.target.value))}
+                        className="px-2 py-1 border border-brand-border rounded-lg text-xs w-16 text-center outline-none bg-white font-bold"
+                      />
+                    </div>
+                    <div className="border-t border-pink-100/50 pt-2 flex flex-col gap-1 text-xs font-semibold text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Valor bruto:</span>
+                        <span>{formatCurrency(formData.amount)}</span>
+                      </div>
+                      <div className="flex justify-between text-brand-danger">
+                        <span>Desconto da taxa ({cardFeePercent}%):</span>
+                        <span>- {formatCurrency(cardFeeAmount)}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-pink-100/60 pt-2 text-sm font-black text-brand-navy">
+                        <span>Líquido a receber:</span>
+                        <span className="text-brand-success">{formatCurrency(netAmount)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-4 pt-6">
               <Button variant="ghost" fullWidth onClick={onClose} className="text-slate-400">Cancelar</Button>
-              <Button fullWidth onClick={() => onSave(formData)} className="shadow-lg shadow-pink-100">Registrar</Button>
+              <Button fullWidth onClick={handleRegister} className="shadow-lg shadow-pink-100">Registrar</Button>
             </div>
           </div>
         </Card>
