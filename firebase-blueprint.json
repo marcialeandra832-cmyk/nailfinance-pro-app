@@ -1,0 +1,22 @@
+{
+  "entities": {
+    "AuthorizedUser": {
+      "title": "Authorized User",
+      "description": "Represents whether a user with a specific email is authorized and active in the application",
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "boolean",
+          "description": "Whether the user has active authorization in the system"
+        }
+      },
+      "required": ["active"]
+    }
+  },
+  "firestore": {
+    "authorized_users/{email}": {
+      "schema": "AuthorizedUser",
+      "description": "A list of email addresses that are authorized to log in"
+    }
+  }
+}
