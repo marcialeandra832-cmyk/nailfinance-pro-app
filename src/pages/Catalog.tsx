@@ -9,7 +9,6 @@ import {
   Trash2, 
   Edit2, 
   TrendingUp,
-  Sparkles,
   Tag
 } from 'lucide-react';
 import { Card, Button, Badge, Input, Select } from '../components/UI';
@@ -382,7 +381,7 @@ export function Catalog({ services, onAdd, onDelete, settings }: CatalogProps) {
         <Card className="bg-gradient-to-br from-brand-pink/5 to-white border-brand-pink/20 p-8">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="w-16 h-16 rounded-2xl bg-brand-pink flex items-center justify-center text-white shrink-0 shadow-lg shadow-pink-100">
-              <Sparkles size={32} />
+              <DollarSign size={32} />
             </div>
             <div className="flex-1 text-center md:text-left">
               <h4 className="text-xl font-serif font-bold text-brand-navy mb-2">Dica de Precificação</h4>
@@ -487,7 +486,7 @@ function ServiceModal({ onClose, onSave }: { onClose: () => void, onSave: (s: Om
                   onClick={() => setShowCalculator(!showCalculator)}
                   className="text-xs font-bold text-brand-pink hover:text-brand-pink/80 mt-1 flex items-center gap-1.5 transition-colors focus:outline-none"
                 >
-                  <Sparkles size={12} />
+                  <Calculator size={12} />
                   {showCalculator ? "Ocultar Calculadora" : "📐 Calcular com Ficha de Insumos"}
                 </button>
               </div>
@@ -504,7 +503,7 @@ function ServiceModal({ onClose, onSave }: { onClose: () => void, onSave: (s: Om
                 >
                   <div className="border-b border-pink-100 pb-2">
                     <h3 className="font-serif font-bold text-brand-navy flex items-center gap-2 text-base">
-                      <Sparkles size={16} className="text-brand-pink" />
+                      <Calculator size={16} className="text-brand-pink" />
                       Ficha Técnica & Rendimento de Materiais
                     </h3>
                     <p className="text-xs text-gray-400 mt-1">Calcule dinamicamente a fração de insumo gasta em cada atendimento.</p>
