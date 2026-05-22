@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        setLoading(true);
         try {
           const usersRef = ref(database, 'authorized_users');
           const snapshot = await get(usersRef);

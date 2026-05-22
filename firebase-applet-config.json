@@ -1,10 +1,11 @@
 {
-  "projectId": "gen-lang-client-0794556353",
-  "appId": "1:167295446078:web:f05c574107f75c4857b56f",
-  "apiKey": "AIzaSyBTDrqU7VVKHa5cKLiicn1BEJAwwfM8ZLA",
-  "authDomain": "gen-lang-client-0794556353.firebaseapp.com",
+  "projectId": "nail-finance-pro",
+  "appId": "1:811698834085:web:fc156502685e81532fdb4c",
+  "apiKey": "AIzaSyB1iQ57jEPDLVbRtFSdX9l08hos2NELOhk",
+  "authDomain": "nail-finance-pro.firebaseapp.com",
+  "databaseURL": "https://nail-finance-pro-default-rtdb.firebaseio.com",
   "firestoreDatabaseId": "ai-studio-fdc98d72-dd69-4ef3-b0cb-11b3c40d967e",
-  "storageBucket": "gen-lang-client-0794556353.firebasestorage.app",
-  "messagingSenderId": "167295446078",
-  "measurementId": ""
+  "storageBucket": "nail-finance-pro.firebasestorage.app",
+  "messagingSenderId": "811698834085",
+  "measurementId": "G-9B78XDHLQ3"
 }
