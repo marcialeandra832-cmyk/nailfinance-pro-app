@@ -7,7 +7,7 @@ import {
   browserLocalPersistence
 } from 'firebase/auth';
 import { auth, database } from '../firebase';
-import { ref, get } from 'firebase/database';
+import { ref, get, set } from 'firebase/database';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -35,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const snapshot = await get(usersRef);
           
           let isAuthorized = false;
+          let userExistsInDb = false;
+          let isUserActive = true;
           const emailToFind = firebaseUser.email?.trim().toLowerCase();
 
           if (snapshot.exists()) {
@@ -44,14 +46,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               for (const item of list) {
                 if (item && typeof item === 'object') {
                   const itemEmail = item.email ? String(item.email).trim().toLowerCase() : '';
-                  const isActive = item.active === true || item.active === 'true';
-                  if (itemEmail === emailToFind && isActive) {
-                    isAuthorized = true;
+                  if (itemEmail === emailToFind) {
+                    userExistsInDb = true;
+                    isUserActive = item.active === true || item.active === 'true' || item.active === undefined;
                     break;
                   }
                 }
               }
             }
+          }
+
+          // Se o usuário já está no banco e está ativo, ou se não está no banco ainda (nova conta ou logando pela primeira vez)
+          if (!userExistsInDb) {
+            isAuthorized = true;
+            try {
+              const newUserRef = ref(database, `authorized_users/${firebaseUser.uid}`);
+              await set(newUserRef, {
+                email: emailToFind,
+                active: true,
+                name: firebaseUser.displayName || 'Usuário'
+              });
+            } catch (err) {
+              console.error('Falha ao registrar novo usuário autorizado no banco:', err);
+            }
+          } else {
+            isAuthorized = isUserActive;
           }
 
           if (isAuthorized) {
