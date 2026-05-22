@@ -6,55 +6,9 @@ import {
   setPersistence,
   browserLocalPersistence
 } from 'firebase/auth';
-import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+import { auth, database } from '../firebase';
+import { ref, get } from 'firebase/database';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
@@ -76,20 +30,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const ref = doc(db, 'authorized_users', firebaseUser.email!);
-          const snap = await getDoc(ref);
-          if (snap.exists() && snap.data().active === true) {
+          const usersRef = ref(database, 'authorized_users');
+          const snapshot = await get(usersRef);
+          
+          let isAuthorized = false;
+          const emailToFind = firebaseUser.email?.trim().toLowerCase();
+
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            if (data) {
+              const list = Array.isArray(data) ? data : Object.values(data);
+              for (const item of list) {
+                if (item && typeof item === 'object') {
+                  const itemEmail = item.email ? String(item.email).trim().toLowerCase() : '';
+                  const isActive = item.active === true || item.active === 'true';
+                  if (itemEmail === emailToFind && isActive) {
+                    isAuthorized = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          if (isAuthorized) {
             setUser(firebaseUser);
             setAuthorized(true);
           } else {
-            await signOut(auth);
             setUser(null);
             setAuthorized(false);
+            await signOut(auth);
+            toast.error('E-mail não autorizado ou conta inativa no sistema.');
           }
-        } catch (error) {
+        } catch (error: any) {
+          console.error('Erro na validação do Realtime Database:', error);
           setUser(null);
           setAuthorized(false);
-          handleFirestoreError(error, OperationType.GET, `authorized_users/${firebaseUser.email!}`);
+          await signOut(auth);
+          toast.error(`Falha na autenticação: ${error.message || 'Erro de conexão'}`);
         }
       } else {
         setUser(null);
