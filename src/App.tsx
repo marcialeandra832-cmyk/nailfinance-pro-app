@@ -149,7 +149,7 @@ function MainLayout({ children, activeTab, setActiveTab, user, settings, selecte
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { user, loading } = useAuth();
+  const { user, loading, authorized } = useAuth();
   const { 
     services, 
     transactions, 
@@ -214,12 +214,12 @@ export default function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/" replace /> : <AuthPage />} 
+            element={user && authorized ? <Navigate to="/" replace /> : <AuthPage />} 
           />
           <Route 
             path="/" 
             element={
-              !user ? (
+              !user || !authorized ? (
                 <Navigate to="/login" replace />
               ) : (
                 <MainLayout 

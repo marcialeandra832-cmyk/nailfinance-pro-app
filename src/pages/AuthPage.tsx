@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../firebase';
 import { Card, Button, Input, Badge } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,11 +16,19 @@ import { toast } from 'sonner';
 type AuthMode = 'login' | 'register' | 'forgot';
 
 export function AuthPage() {
+  const navigate = useNavigate();
+  const { user, authorized } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user && authorized) {
+      navigate('/', { replace: true });
+    }
+  }, [user, authorized, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
