@@ -169,7 +169,7 @@ export function Catalog({ services, onAdd, onUpdate, onDelete, settings }: Catal
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Cardápio de Serviços</h1>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Catálogo de Serviços</h1>
           <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">Precifique procedimentos considerando insumos e tempo de bancada.</p>
         </div>
         

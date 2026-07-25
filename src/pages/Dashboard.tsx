@@ -207,7 +207,7 @@ export function Dashboard({ summary, selectedMonth, transactions }: DashboardPro
                   variant="ghost" 
                   className="text-white hover:bg-white/10"
                 >
-                  Ver Cardápio de Preços
+                  Ver Catálogo de Preços
                 </Button>
               </div>
             </div>
