@@ -28,6 +28,58 @@ interface AIAnalysisProps {
   selectedMonth: Date;
 }
 
+const getClientFallbackConsultation = (
+  servicesList: Service[], 
+  transList: Transaction[], 
+  userSettings: UserSettings, 
+  finSummary: FinancialSummary
+) => {
+  const margin = finSummary?.profitMargin || 0;
+  const studioRev = finSummary?.studioRevenue || 0;
+  const studioCost = finSummary?.studioCosts || 0;
+
+  const fallbackInsights: AIInsight[] = [
+    {
+      type: margin >= 40 ? 'success' : 'warning',
+      title: margin >= 40 ? 'Margem Operacional Saudável' : 'Atenção à Margem de Lucro',
+      text: `Sua margem atual de lucro real é de ${margin.toFixed(1)}%. O ideal para nail designers de alta performance é manter a margem acima de 50%.`
+    }
+  ];
+
+  if (studioCost > studioRev * 0.35) {
+    fallbackInsights.push({
+      type: 'warning',
+      title: 'Custos Elevados com Materiais',
+      text: 'Seus custos operacionais ultrapassaram 35% do faturamento. Tente renegociar géis e descartáveis em pacotes maiores.'
+    });
+  } else {
+    fallbackInsights.push({
+      type: 'info',
+      title: 'Controle de Custos em Dia',
+      text: 'Seus gastos com insumos e despesas operacionais estão bem equilibrados em relação ao faturamento.'
+    });
+  }
+
+  const lowMargin = (servicesList || []).find(s => (s.price - s.materialCost) / (s.price || 1) < 0.5);
+  if (lowMargin) {
+    fallbackInsights.push({
+      type: 'danger',
+      title: 'Procedimento com Custo Alto',
+      text: `O serviço "${lowMargin.name}" possui custo elevado de insumos em relação ao preço cobrado. Considere reajustar o valor.`
+    });
+  } else {
+    fallbackInsights.push({
+      type: 'success',
+      title: 'Catálogo Bem Precificado',
+      text: 'Seus procedimentos cadastrados apresentam uma ótima margem de retorno por atendimento.'
+    });
+  }
+
+  const suggestionText = `Recomendação para o ${userSettings?.studioName || 'Studio'}: Para bater sua meta de R$ ${userSettings?.revenueGoal || 5000} no mês, acompanhe a Ficha Técnica de Custos de cada procedimento. Serviços rápidos de alta margem como "Banho em Gel" e "Blindagem" ajudam a elevar seu faturamento diário com menor tempo de bancada.`;
+
+  return { insights: fallbackInsights, suggestion: suggestionText };
+};
+
 export function AIAnalysis({ services, transactions, settings, summary, selectedMonth }: AIAnalysisProps) {
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<AIInsight[]>([]);
@@ -41,28 +93,38 @@ export function AIAnalysis({ services, transactions, settings, summary, selected
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          services,
-          transactions,
-          settings,
-          summary
+          services: services || [],
+          transactions: transactions || [],
+          settings: settings || {},
+          summary: summary || {}
         })
       });
 
       if (!response.ok) {
-        throw new Error('Falha na resposta do servidor.');
+        throw new Error(`Falha na resposta do servidor (${response.status})`);
       }
 
       const data = await response.json();
-      if (data.insights && Array.isArray(data.insights)) {
+      if (data.insights && Array.isArray(data.insights) && data.insights.length > 0) {
         setInsights(data.insights);
+      } else {
+        const fallback = getClientFallbackConsultation(services, transactions, settings, summary);
+        setInsights(fallback.insights);
       }
+
       if (data.suggestion) {
         setSuggestion(data.suggestion);
+      } else {
+        const fallback = getClientFallbackConsultation(services, transactions, settings, summary);
+        setSuggestion(fallback.suggestion);
       }
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Erro na consultoria IA:', error);
-      toast.error('Não foi possível gerar a análise agora. Tente novamente em instantes.');
+      const fallback = getClientFallbackConsultation(services, transactions, settings, summary);
+      setInsights(fallback.insights);
+      setSuggestion(fallback.suggestion);
+      setLastUpdated(new Date());
     } finally {
       setLoading(false);
     }

@@ -80,7 +80,7 @@ app.post('/api/ai-consult', async (req, res) => {
     `;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -118,9 +118,12 @@ app.post('/api/ai-consult', async (req, res) => {
 });
 
 // Intelligent, rules-based analytical fallback in case Gemini is offline or not configured yet
-function generateRuleBasedConsultation(services: any[], transactions: any[], settings: any, summary: any) {
+function generateRuleBasedConsultation(rawServices: any, rawTransactions: any, settings: any, summary: any) {
+  const services: any[] = Array.isArray(rawServices) ? rawServices : (rawServices && typeof rawServices === 'object' ? Object.values(rawServices) : []);
+  const transactions: any[] = Array.isArray(rawTransactions) ? rawTransactions : (rawTransactions && typeof rawTransactions === 'object' ? Object.values(rawTransactions) : []);
+
   const calculatedProfit = (summary?.realProfit || 0);
-  const profitMargin = (summary?.profitMargin || 0);
+  const profitMargin = Number(summary?.profitMargin || 0);
   const totalRevenue = (summary?.studioRevenue || 0);
   const totalCosts = (summary?.studioCosts || 0);
 
@@ -128,7 +131,7 @@ function generateRuleBasedConsultation(services: any[], transactions: any[], set
     {
       type: 'success',
       title: 'Espaço de Margem Saudável',
-      text: `Sua margem atual de lucro real é de ${profitMargin.toFixed(1)}%. Na área de Nail Design, manter acima de 50% garante excelente retorno operacional.`
+      text: `Sua margem atual de lucro real é de ${isNaN(profitMargin) ? '0.0' : profitMargin.toFixed(1)}%. Na área de Nail Design, manter acima de 50% garante excelente retorno operacional.`
     }
   ];
 

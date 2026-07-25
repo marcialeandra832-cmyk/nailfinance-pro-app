@@ -91,11 +91,13 @@ export function useFinance() {
 
         if (snapshot.exists() && isMounted) {
           const data = snapshot.val();
-          if (data.services && Array.isArray(data.services)) {
-            setServices(data.services);
+          if (data.services) {
+            const parsedServices = Array.isArray(data.services) ? data.services : Object.values(data.services);
+            setServices(parsedServices as Service[]);
           }
-          if (data.transactions && Array.isArray(data.transactions)) {
-            setTransactions(data.transactions);
+          if (data.transactions) {
+            const parsedTransactions = Array.isArray(data.transactions) ? data.transactions : Object.values(data.transactions);
+            setTransactions(parsedTransactions as Transaction[]);
           }
           if (data.settings && typeof data.settings === 'object') {
             setSettings(prev => ({ ...prev, ...data.settings }));
