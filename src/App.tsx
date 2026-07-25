@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { useFinance } from './hooks/useFinance';
 import { Dashboard } from './pages/Dashboard';
@@ -8,136 +8,234 @@ import { StudioCash } from './pages/StudioCash';
 import { PersonalCash } from './pages/PersonalCash';
 import { AIAnalysis } from './pages/AIAnalysis';
 import { Settings } from './pages/Settings';
-import { Subscription } from './pages/Subscription';
 import { FAQ } from './pages/FAQ';
-import { Calendar, ChevronLeft, ChevronRight, Bell, Search, User as UserIcon } from 'lucide-react';
+import { CheckoutReturn } from './pages/CheckoutReturn';
+import { Calendar, ChevronLeft, ChevronRight, Bell, Search, User as UserIcon, X, Loader2 } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import { Badge, Button } from './components/UI';
+import { Badge } from './components/UI';
 import { Toaster, toast } from 'sonner';
 import { useAuth } from './contexts/AuthContext';
 import { AuthPage } from './pages/AuthPage';
-import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { formatCurrency } from './lib/utils';
 
 const nailBg = '/nail_bg.png';
 
-function MainLayout({ children, activeTab, setActiveTab, user, settings, selectedMonth, setSelectedMonth, prevMonth, nextMonth }: any) {
+function MainLayout({ children, user, settings, selectedMonth, prevMonth, nextMonth, services, monthTransactions }: any) {
+  const navigate = useNavigate();
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // Search results
+  const matchedServices = (services || []).filter((s: any) => 
+    globalSearch.trim() && s.name.toLowerCase().includes(globalSearch.toLowerCase())
+  );
+  const matchedTransactions = (monthTransactions || []).filter((t: any) => 
+    globalSearch.trim() && t.description.toLowerCase().includes(globalSearch.toLowerCase())
+  );
+
+  const hasSearchMatches = matchedServices.length > 0 || matchedTransactions.length > 0;
+
   return (
     <div className="flex min-h-screen bg-brand-bg font-sans selection:bg-brand-primary/20 selection:text-brand-primary">
       <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
         userName={user.displayName || settings.name}
-        plan="Plano Ativo"
+        plan="NailFinance Pro"
       />
       
       <main className="flex-1 h-screen overflow-y-auto relative scroll-smooth bg-brand-bg text-brand-navy">
-        {/* Fundo elegante de unhas, esmaltes e cifrões (suave marca d'água) */}
+        {/* Subtle background watermark pattern */}
         <div 
-          className="absolute inset-0 pointer-events-none opacity-[0.14] dark:opacity-[0.05]"
+          className="absolute inset-0 pointer-events-none opacity-[0.12] dark:opacity-[0.05]"
           style={{ 
             backgroundImage: `url(${nailBg})`,
-            backgroundSize: '300px',
+            backgroundSize: '280px',
             backgroundRepeat: 'repeat',
           }}
         />
-        <Toaster position="top-right" richColors />
+
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-brand-bg/80 backdrop-blur-md border-b border-brand-border px-6 py-4 md:px-12">
+        <header className="sticky top-0 z-30 bg-brand-bg/85 backdrop-blur-md border-b border-brand-border/60 px-6 py-4 md:px-12">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="hidden md:flex items-center gap-3 bg-brand-card/50 dark:bg-brand-card/20 border border-brand-border px-4 py-2 rounded-2xl w-full max-w-md group focus-within:bg-brand-card focus-within:shadow-sm transition-all">
-              <Search size={18} className="text-gray-400 group-focus-within:text-brand-primary transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Buscar no NailFinance..." 
-                className="bg-transparent border-none outline-none text-sm w-full text-brand-navy placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
+            
+            {/* Global Search Input */}
+            <div className="relative hidden md:block w-full max-w-md">
+              <div className="flex items-center gap-3 bg-white border border-brand-border/80 px-4 py-2.5 rounded-2xl w-full group focus-within:shadow-md focus-within:border-brand-pink transition-all">
+                <Search size={18} className="text-gray-400 group-focus-within:text-brand-pink transition-colors shrink-0" />
+                <input 
+                  type="text" 
+                  aria-label="Buscar serviços e lançamentos no NailFinance"
+                  placeholder="Buscar serviços, despesas e atendimentos..." 
+                  value={globalSearch}
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  className="bg-transparent border-none outline-none text-sm w-full text-brand-navy placeholder:text-gray-400 font-medium"
+                />
+                {globalSearch && (
+                  <button 
+                    type="button"
+                    onClick={() => setGlobalSearch('')}
+                    aria-label="Limpar campo de busca"
+                    className="p-1 rounded-full text-gray-400 hover:text-brand-navy"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Global Search Results Dropdown */}
+              <AnimatePresence>
+                {isSearchFocused && globalSearch.trim().length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-brand-border p-4 z-50 max-h-96 overflow-y-auto space-y-4"
+                  >
+                    {!hasSearchMatches ? (
+                      <p className="text-xs text-gray-400 text-center py-4 font-semibold">Nenhum resultado para "{globalSearch}"</p>
+                    ) : (
+                      <>
+                        {matchedServices.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-black uppercase text-brand-pink tracking-wider block mb-2">Procedimentos ({matchedServices.length})</span>
+                            <div className="space-y-1">
+                              {matchedServices.map((s: any) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setIsSearchFocused(false);
+                                    setGlobalSearch('');
+                                    navigate('/catalog');
+                                  }}
+                                  className="w-full text-left p-2.5 rounded-xl hover:bg-pink-50 flex items-center justify-between text-xs font-bold text-brand-navy transition-colors"
+                                >
+                                  <span>{s.name}</span>
+                                  <span className="text-brand-primary">{formatCurrency(s.price)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {matchedTransactions.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-black uppercase text-brand-pink tracking-wider block mb-2">Lançamentos do Mês ({matchedTransactions.length})</span>
+                            <div className="space-y-1">
+                              {matchedTransactions.map((t: any) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setIsSearchFocused(false);
+                                    setGlobalSearch('');
+                                    navigate(t.isPersonal ? '/personal' : '/studio');
+                                  }}
+                                  className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between text-xs font-bold text-brand-navy transition-colors"
+                                >
+                                  <div>
+                                    <p>{t.description}</p>
+                                    <span className="text-[10px] font-normal text-gray-400">{t.isPersonal ? 'Caixa Pessoal' : 'Caixa Studio'}</span>
+                                  </div>
+                                  <span className={t.type === 'entrada' ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
+                                    {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div className="flex items-center gap-4 ml-auto">
+            {/* Right Controls */}
+            <div className="flex items-center gap-3 ml-auto">
               {/* Month Selector */}
-              <div className="flex items-center gap-1 bg-brand-card px-2 py-1.5 rounded-2xl shadow-sm border border-brand-border">
+              <div className="flex items-center gap-1 bg-white px-2 py-1.5 rounded-2xl shadow-sm border border-brand-border/80">
                 <button 
+                  type="button"
                   onClick={prevMonth}
-                  className="p-1.5 hover:bg-brand-bg rounded-xl text-gray-400 hover:text-brand-primary transition-all active:scale-90"
-                  title="Mês anterior"
+                  aria-label="Mês anterior"
+                  className="p-1.5 hover:bg-pink-50 rounded-xl text-gray-400 hover:text-brand-pink transition-all focus-visible:ring-2 focus-visible:ring-brand-pink focus-visible:outline-none"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <div className="flex items-center gap-2 px-3 min-w-[140px] justify-center">
-                  <Calendar size={16} className="text-brand-primary" />
-                  <span className="text-sm font-bold text-brand-navy capitalize whitespace-nowrap">
+                  <Calendar size={16} className="text-brand-pink shrink-0" />
+                  <span className="text-xs md:text-sm font-bold text-brand-navy capitalize whitespace-nowrap">
                     {format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}
                   </span>
                 </div>
                 <button 
+                  type="button"
                   onClick={nextMonth}
-                  className="p-1.5 hover:bg-brand-bg rounded-xl text-gray-400 hover:text-brand-primary transition-all active:scale-90"
-                  title="Próximo mês"
+                  aria-label="Próximo mês"
+                  className="p-1.5 hover:bg-pink-50 rounded-xl text-gray-400 hover:text-brand-pink transition-all focus-visible:ring-2 focus-visible:ring-brand-pink focus-visible:outline-none"
                 >
                   <ChevronRight size={18} />
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => {
-                    if (settings.notifications) {
-                      toast.info("Você não tem novas notificações no momento.");
-                    } else {
-                      toast.warning("As notificações estão desativadas nas configurações.");
-                    }
-                  }}
-                  className="relative p-2.5 bg-brand-card border border-brand-border rounded-2xl text-gray-400 hover:text-brand-primary hover:shadow-sm transition-all active:scale-95"
-                >
-                  <Bell size={20} />
-                  {settings.notifications && (
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-brand-primary rounded-full border-2 border-brand-card" />
-                  )}
-                </button>
-                <button 
-                  onClick={() => setActiveTab('settings')}
-                  className="p-1 bg-brand-card border border-brand-border rounded-2xl hover:shadow-sm transition-all active:scale-95 overflow-hidden"
-                >
-                  <div className="w-9 h-9 bg-brand-primary/10 flex items-center justify-center text-brand-primary rounded-xl font-bold">
-                    {settings.name?.charAt(0).toUpperCase() || <UserIcon size={18} />}
-                  </div>
-                </button>
-              </div>
+              {/* Notifications */}
+              <button 
+                type="button"
+                onClick={() => {
+                  if (settings.notifications) {
+                    toast.info("Tudo em dia! Nenhuma pendência no seu estúdio.");
+                  } else {
+                    toast.warning("Lembretes desativados nas configurações.");
+                  }
+                }}
+                aria-label="Ver notificações"
+                className="relative p-2.5 bg-white border border-brand-border/80 rounded-2xl text-gray-400 hover:text-brand-pink hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-brand-pink focus-visible:outline-none"
+              >
+                <Bell size={18} />
+                {settings.notifications && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-brand-pink rounded-full border-2 border-white animate-pulse" />
+                )}
+              </button>
+
+              {/* Profile Shortcut */}
+              <button 
+                type="button"
+                onClick={() => navigate('/settings')}
+                aria-label="Configurações de perfil"
+                className="p-1 bg-white border border-brand-border/80 rounded-2xl hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-brand-pink focus-visible:outline-none"
+              >
+                <div className="w-8 h-8 bg-brand-navy text-white flex items-center justify-center rounded-xl font-bold text-xs">
+                  {settings.name?.charAt(0).toUpperCase() || <UserIcon size={16} />}
+                </div>
+              </button>
             </div>
           </div>
         </header>
 
+        {/* Dynamic Content */}
         <div className="p-6 md:p-12">
           <div className="max-w-7xl mx-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            {children}
           </div>
 
           {/* Footer Quote */}
-          <footer className="mt-24 py-12 border-t border-gray-100/50">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <footer className="mt-20 py-10 border-t border-brand-border/40 text-xs">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-gray-400">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-brand-primary rounded-xl flex items-center justify-center text-white font-bold text-xs">N</div>
-                <span className="font-bold text-brand-navy tracking-tight">NailFinance</span>
+                <div className="w-7 h-7 bg-brand-pink rounded-xl flex items-center justify-center text-white font-serif font-bold text-xs">N</div>
+                <span className="font-bold text-brand-navy text-sm font-serif">NailFinance</span>
               </div>
-              <p className="text-gray-400 italic font-medium text-sm text-center md:text-left">
-                "Lucro real importa mais que faturamento. Seu sucesso é nossa meta."
+              <p className="italic font-medium text-center md:text-left">
+                "Lucro real e controle na bancada: o segredo de um studio de sucesso."
               </p>
-              <div className="flex items-center gap-4">
-                <Badge variant="outline" className="text-[10px] opacity-50">v1.2.0</Badge>
-                <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">© 2026</span>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-[10px]">v1.2.0 • NailFinance Pro</Badge>
+                <span className="text-[10px] text-gray-400 font-bold uppercase">© 2026</span>
               </div>
             </div>
           </footer>
@@ -147,65 +245,112 @@ function MainLayout({ children, activeTab, setActiveTab, user, settings, selecte
   );
 }
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const { user, loading, authorized } = useAuth();
-  const { 
-    services, 
-    transactions, 
-    settings, 
-    summary, 
-    selectedMonth, 
-    setSelectedMonth,
-    addService,
-    deleteService,
-    addTransaction,
-    deleteTransaction,
-    updateSettings 
-  } = useFinance();
+function AuthenticatedRoutes() {
+  const { user, authorized } = useAuth();
+  const finance = useFinance();
 
-  // Apply dark mode
-  React.useEffect(() => {
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [settings.darkMode]);
+  if (!user || !authorized) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const nextMonth = () => finance.setSelectedMonth(addMonths(finance.selectedMonth, 1));
+  const prevMonth = () => finance.setSelectedMonth(subMonths(finance.selectedMonth, 1));
+
+  return (
+    <MainLayout 
+      user={user} 
+      settings={finance.settings}
+      selectedMonth={finance.selectedMonth}
+      prevMonth={prevMonth}
+      nextMonth={nextMonth}
+      services={finance.services}
+      monthTransactions={finance.monthTransactions}
+    >
+      <Routes>
+        <Route 
+          path="/dashboard" 
+          element={
+            <Dashboard 
+              summary={finance.summary} 
+              selectedMonth={finance.selectedMonth} 
+              transactions={finance.transactions}
+            />
+          } 
+        />
+        <Route 
+          path="/catalog" 
+          element={
+            <Catalog 
+              services={finance.services} 
+              onAdd={finance.addService} 
+              onUpdate={finance.updateService}
+              onDelete={finance.deleteService} 
+              settings={finance.settings}
+            />
+          } 
+        />
+        <Route 
+          path="/studio" 
+          element={
+            <StudioCash 
+              transactions={finance.monthTransactions} 
+              selectedMonth={finance.selectedMonth}
+              onAdd={finance.addTransaction} 
+              onDelete={finance.deleteTransaction}
+            />
+          } 
+        />
+        <Route 
+          path="/personal" 
+          element={
+            <PersonalCash 
+              transactions={finance.monthTransactions} 
+              selectedMonth={finance.selectedMonth}
+              onAdd={finance.addTransaction} 
+              onDelete={finance.deleteTransaction}
+            />
+          } 
+        />
+        <Route 
+          path="/ai" 
+          element={
+            <AIAnalysis 
+              services={finance.services} 
+              transactions={finance.monthTransactions} 
+              settings={finance.settings} 
+              summary={finance.summary}
+              selectedMonth={finance.selectedMonth}
+            />
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <Settings 
+              settings={finance.settings} 
+              onUpdate={finance.updateSettings} 
+            />
+          } 
+        />
+        <Route path="/subscription" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </MainLayout>
+  );
+}
+
+export default function App() {
+  const { user, loading, authorized } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-brand-bg flex items-center justify-center">
-        <Loader2 className="animate-spin text-brand-primary" size={48} />
+        <Loader2 className="animate-spin text-brand-pink" size={44} />
       </div>
     );
   }
-
-  const renderPage = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
-      case 'catalog':
-        return <Catalog services={services} onAdd={addService} onDelete={deleteService} settings={settings} />;
-      case 'studio':
-        return <StudioCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
-      case 'personal':
-        return <PersonalCash transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} />;
-      case 'ai':
-        return <AIAnalysis summary={summary} transactions={transactions} services={services} settings={settings} />;
-      case 'settings':
-        return <Settings settings={settings} onUpdate={updateSettings} onNavigate={setActiveTab} />;
-      case 'subscription':
-        return <Subscription onNavigate={setActiveTab} />;
-      case 'faq':
-        return <FAQ />;
-      default:
-        return <Dashboard summary={summary} onGenerateAI={() => setActiveTab('ai')} />;
-    }
-  };
-
-  const nextMonth = () => setSelectedMonth(addMonths(selectedMonth, 1));
-  const prevMonth = () => setSelectedMonth(subMonths(selectedMonth, 1));
 
   return (
     <ErrorBoundary>
@@ -214,30 +359,11 @@ export default function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user && authorized ? <Navigate to="/" replace /> : <AuthPage />} 
+            element={user && authorized ? <Navigate to="/dashboard" replace /> : <AuthPage />} 
           />
-          <Route 
-            path="/" 
-            element={
-              !user || !authorized ? (
-                <Navigate to="/login" replace />
-              ) : (
-                <MainLayout 
-                  activeTab={activeTab} 
-                  setActiveTab={setActiveTab} 
-                  user={user} 
-                  settings={settings}
-                  selectedMonth={selectedMonth}
-                  setSelectedMonth={setSelectedMonth}
-                  prevMonth={prevMonth}
-                  nextMonth={nextMonth}
-                >
-                  {renderPage()}
-                </MainLayout>
-              )
-            } 
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/post-purchase" element={<CheckoutReturn />} />
+          <Route path="/checkout/return" element={<CheckoutReturn />} />
+          <Route path="/*" element={<AuthenticatedRoutes />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

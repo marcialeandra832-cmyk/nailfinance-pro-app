@@ -3,37 +3,55 @@ import {
   Plus, 
   ArrowUpCircle, 
   ArrowDownCircle, 
-  Trash2,
-  ShieldCheck,
-  Search,
-  Calendar as CalendarIcon,
-  ChevronRight
+  Search, 
+  Trash2, 
+  Heart, 
+  X,
+  Wallet
 } from 'lucide-react';
-import { Card, Button, Input, Select, Badge } from '../components/UI';
+import { Card, Button, Badge, Input } from '../components/UI';
 import { formatCurrency, cn } from '../lib/utils';
-import { Transaction } from '../types';
+import { Transaction, PersonalCategory, TransactionType } from '../types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { TransactionModal } from './StudioCash';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 interface PersonalCashProps {
   transactions: Transaction[];
+  selectedMonth: Date;
   onAdd: (t: Omit<Transaction, 'id'>) => void;
   onDelete: (id: string) => void;
 }
 
-export function PersonalCash({ transactions, onAdd, onDelete }: PersonalCashProps) {
+const PERSONAL_CATEGORIES: PersonalCategory[] = [
+  'retirada do negócio',
+  'mercado',
+  'contas',
+  'transporte',
+  'saúde',
+  'lazer',
+  'outros'
+];
+
+export function PersonalCash({ transactions, selectedMonth, onAdd, onDelete }: PersonalCashProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'entrada' | 'saída'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Form fields
+  const [type, setType] = useState<TransactionType>('saída');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<PersonalCategory>('mercado');
+  const [paymentMethod, setPaymentMethod] = useState('Pix');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
   const personalTransactions = transactions.filter(t => t.isPersonal);
-  
   const filteredTransactions = personalTransactions.filter(t => {
     const matchesType = filterType === 'all' || t.type === filterType;
-    const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         t.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesType && matchesSearch;
   });
 
@@ -41,249 +59,353 @@ export function PersonalCash({ transactions, onAdd, onDelete }: PersonalCashProp
   const totalOut = personalTransactions.filter(t => t.type === 'saída').reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIn - totalOut;
 
-  const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
-    <Card className="relative overflow-hidden group">
-      <div className={cn(
-        "absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 transition-transform duration-500 group-hover:scale-110",
-        color === 'success' ? "bg-brand-success" : color === 'danger' ? "bg-brand-danger" : "bg-brand-primary"
-      )} />
-      <div className="flex items-center gap-4">
-        <div className={cn(
-          "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm",
-          color === 'success' ? "bg-green-50 text-brand-success" : 
-          color === 'danger' ? "bg-red-50 text-brand-danger" : 
-          "bg-pink-50 text-brand-primary"
-        )}>
-          <Icon size={24} />
-        </div>
-        <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{title}</p>
-          <h3 className="text-2xl font-bold text-brand-navy mt-1">{formatCurrency(value)}</h3>
-          {trend && (
-            <p className={cn("text-[10px] font-bold mt-1 uppercase tracking-tighter", color === 'success' ? "text-brand-success" : "text-brand-danger")}>
-              {trend}
-            </p>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+
+    if (!description.trim()) {
+      toast.error('Informe a descrição da despesa pessoal.');
+      return;
+    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error('Informe um valor numérico válido.');
+      return;
+    }
+
+    onAdd({
+      type,
+      description,
+      category,
+      amount: parsedAmount,
+      date: new Date(date).toISOString(),
+      paymentMethod,
+      isPersonal: true
+    });
+
+    setIsModalOpen(false);
+    setDescription('');
+    setAmount('');
+  };
+
+  const confirmDelete = (id: string) => {
+    onDelete(id);
+    setDeleteConfirmId(null);
+  };
 
   return (
-    <div className="space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="space-y-2"
-        >
-          <Badge variant="primary" className="mb-2">Finanças Pessoais</Badge>
-          <h1 className="text-4xl font-bold text-brand-navy tracking-tight">
-            Seu Dinheiro, <span className="text-brand-primary italic font-serif">Sua Liberdade</span>
-          </h1>
-          <p className="text-gray-500 max-w-md">
-            Organize seus gastos pessoais e garanta que o lucro do seu studio se transforme em qualidade de vida para você.
+    <div className="space-y-10 pb-12">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Caixa Pessoal</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">
+            Gasto pessoal e pró-labore em <strong className="capitalize text-brand-navy">{format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}</strong>.
           </p>
-        </motion.div>
+        </div>
         
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <Button onClick={() => setIsModalOpen(true)} variant="primary" size="lg" className="shadow-lg shadow-brand-primary/20">
-            <Plus size={20} />
-            Novo Gasto Pessoal
-          </Button>
-        </motion.div>
+        <Button onClick={() => setIsModalOpen(true)} size="lg" className="shadow-lg shadow-pink-200">
+          <Plus size={20} className="mr-2" />
+          Lançar Despesa Pessoal
+        </Button>
       </header>
 
-      {/* Rule of Gold Banner */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-gradient-to-r from-brand-navy to-brand-navy/90 p-8 rounded-[2rem] text-white relative overflow-hidden shadow-xl"
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-          <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-brand-primary shrink-0 border border-white/10">
-            <ShieldCheck size={32} />
+      {/* Info Card on Separating Finances */}
+      <Card className="bg-gradient-to-r from-pink-50 to-purple-50/50 border-pink-100 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-primary flex items-center justify-center text-white shrink-0 shadow-md">
+            <Heart size={24} />
           </div>
-          <div className="text-center md:text-left">
-            <h3 className="text-xl font-bold mb-1">A Regra de Ouro da Nail Designer de Sucesso</h3>
-            <p className="text-white/70 text-lg leading-relaxed">
-              "Quem mistura o dinheiro do esmalte com o dinheiro do aluguel de casa, nunca sabe se está lucrando ou apenas pagando boletos."
+          <div>
+            <h3 className="font-serif font-bold text-lg text-brand-navy">Separação de Caixas Ativa</h3>
+            <p className="text-xs text-gray-600 font-medium mt-0.5">
+              Não misturar o caixa da casa com o caixa do studio é o segredo para seu negócio ser lucrativo e duradouro.
             </p>
           </div>
-        </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard 
-          title="Entradas Pessoais" 
-          value={totalIn} 
-          icon={ArrowUpCircle} 
-          color="success"
-          trend="Seu Pró-labore e extras"
-        />
-        <StatCard 
-          title="Saídas Pessoais" 
-          value={totalOut} 
-          icon={ArrowDownCircle} 
-          color="danger"
-          trend="Custos de vida e lazer"
-        />
-        <Card className={cn(
-          "relative overflow-hidden border-none shadow-xl",
-          balance >= 0 ? "bg-brand-success" : "bg-brand-danger"
-        )}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-          <div className="relative z-10">
-            <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Saldo Pessoal Livre</p>
-            <h3 className="text-3xl font-bold text-white mt-2">{formatCurrency(balance)}</h3>
-            <div className="mt-4 flex items-center gap-2 text-white/80 text-xs font-medium bg-white/10 w-fit px-3 py-1 rounded-full backdrop-blur-sm">
-              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              {balance >= 0 ? "Saldo positivo" : "Atenção ao saldo"}
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <Card className="border-none shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/30">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 className="text-xl font-bold text-brand-navy flex items-center gap-2">
-              Extrato Pessoal
-              <Badge variant="outline" className="ml-2">{filteredTransactions.length}</Badge>
-            </h2>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative min-w-[240px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <Input 
-                  placeholder="Buscar por descrição..." 
-                  className="pl-10 py-2 h-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Select 
-                value={filterType} 
-                onChange={(e) => setFilterType(e.target.value as any)}
-                className="h-10 py-0"
-              >
-                <option value="all">Todos Tipos</option>
-                <option value="entrada">Entradas</option>
-                <option value="saída">Saídas</option>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50">
-                <th className="px-6 py-4">Descrição</th>
-                <th className="px-6 py-4">Categoria</th>
-                <th className="px-6 py-4">Data</th>
-                <th className="px-6 py-4">Valor</th>
-                <th className="px-6 py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              <AnimatePresence mode="popLayout">
-                {filteredTransactions.map((t, index) => (
-                  <motion.tr 
-                    key={t.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="group hover:bg-gray-50/80 transition-all duration-300"
-                  >
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-110",
-                          t.type === 'entrada' ? "bg-green-50 text-brand-success" : "bg-red-50 text-brand-danger"
-                        )}>
-                          {t.type === 'entrada' ? <ArrowUpCircle size={18} /> : <ArrowDownCircle size={18} />}
-                        </div>
-                        <div>
-                          <p className="font-bold text-brand-navy leading-none mb-1">{t.description}</p>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">ID: {t.id.slice(0, 8)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <Badge variant="outline" className="bg-gray-50 border-gray-100 text-gray-500">
-                        {t.category}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
-                        <CalendarIcon size={14} className="text-gray-300" />
-                        {format(parseISO(t.date), "dd 'de' MMM", { locale: ptBR })}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className={cn(
-                        "font-bold text-lg tracking-tight",
-                        t.type === 'entrada' ? "text-brand-success" : "text-brand-danger"
-                      )}>
-                        {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
-                      </p>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => onDelete(t.id)}
-                          className="p-2.5 text-gray-300 hover:text-brand-danger hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                          title="Excluir lançamento"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                        <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-              
-              {filteredTransactions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-24 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                        <Search size={32} />
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-brand-navy">Nenhum lançamento encontrado</p>
-                        <p className="text-gray-400 text-sm">Tente ajustar seus filtros ou busca.</p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => {setSearchTerm(''); setFilterType('all');}}>
-                        Limpar filtros
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       </Card>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <Card className="bg-white border-brand-border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-gray-400 uppercase">Retirada / Entrada Pessoal</span>
+            <ArrowUpCircle className="text-emerald-500" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-emerald-600">{formatCurrency(totalIn)}</p>
+          <p className="text-xs text-gray-400 mt-2">Transferências do studio para seu pró-labore.</p>
+        </Card>
+
+        <Card className="bg-white border-brand-border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-gray-400 uppercase">Gastos Pessoais</span>
+            <ArrowDownCircle className="text-red-500" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-red-600">{formatCurrency(totalOut)}</p>
+          <p className="text-xs text-gray-400 mt-2">Despesas de mercado, contas de casa e lazer.</p>
+        </Card>
+
+        <Card className="bg-brand-navy text-white border-none shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-blue-200 uppercase">Saldo Pessoal Livre</span>
+            <Wallet className="text-pink-400" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-white">{formatCurrency(balance)}</p>
+          <p className="text-xs text-blue-100/70 mt-2">Disponível para uso pessoal no mês.</p>
+        </Card>
+      </div>
+
+      {/* Filter and Table Card */}
+      <Card className="overflow-hidden border-brand-border bg-white shadow-sm p-0">
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex p-1 bg-white rounded-2xl border border-brand-border w-fit">
+            <button 
+              type="button"
+              onClick={() => setFilterType('all')}
+              className={cn(
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'all' ? "bg-brand-navy text-white shadow-sm" : "text-gray-500 hover:text-brand-navy"
+              )}
+            >
+              Todas
+            </button>
+            <button 
+              type="button"
+              onClick={() => setFilterType('entrada')}
+              className={cn(
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'entrada' ? "bg-emerald-600 text-white shadow-sm" : "text-gray-500 hover:text-emerald-600"
+              )}
+            >
+              Entradas
+            </button>
+            <button 
+              type="button"
+              onClick={() => setFilterType('saída')}
+              className={cn(
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'saída' ? "bg-red-600 text-white shadow-sm" : "text-gray-500 hover:text-red-600"
+              )}
+            >
+              Saídas
+            </button>
+          </div>
+
+          <div className="flex-1 max-w-md">
+            <Input 
+              aria-label="Buscar despesas no caixa pessoal"
+              placeholder="Buscar gasto pessoal..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white"
+            />
+          </div>
+        </div>
+
+        {filteredTransactions.length === 0 ? (
+          <div className="py-16 text-center text-gray-500">
+            <p className="font-bold text-brand-navy mb-1">Nenhuma despesa pessoal lançada</p>
+            <p className="text-xs mb-4">Mantenha seus gastos de casa registrados para ter controle total do seu orçamento.</p>
+            <Button size="sm" onClick={() => setIsModalOpen(true)}>
+              <Plus size={16} className="mr-1" /> Lançar Despesa
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/30">
+                  <th className="px-6 py-4">Descrição</th>
+                  <th className="px-6 py-4">Categoria</th>
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Valor</th>
+                  <th className="px-6 py-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm font-semibold text-brand-navy">
+                {filteredTransactions.map(t => (
+                  <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-bold">{t.description}</td>
+                    <td className="px-6 py-4 capitalize text-xs">
+                      <Badge variant="outline">{t.category}</Badge>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500">
+                      {t.date ? format(parseISO(t.date), 'dd/MM/yyyy') : '-'}
+                    </td>
+                    <td className={cn("px-6 py-4 font-bold text-base", t.type === 'entrada' ? "text-emerald-600" : "text-red-600")}>
+                      {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        type="button"
+                        onClick={() => setDeleteConfirmId(t.id)}
+                        aria-label={`Excluir lançamento pessoal ${t.description}`}
+                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Delete Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-pers-title"
+            onKeyDown={e => e.key === 'Escape' && setDeleteConfirmId(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center"
+            >
+              <h3 id="delete-pers-title" className="text-lg font-bold text-brand-navy">Remover Lançamento Pessoal?</h3>
+              <p className="text-xs text-gray-500 font-medium">Esta despesa será excluída do caixa pessoal.</p>
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="ghost" fullWidth onClick={() => setDeleteConfirmId(null)}>
+                  Cancelar
+                </Button>
+                <Button variant="danger" fullWidth onClick={() => confirmDelete(deleteConfirmId)}>
+                  Remover
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <TransactionModal 
-            isPersonal={true}
-            onClose={() => setIsModalOpen(false)} 
-            onSave={(t) => {
-              onAdd(t);
-              setIsModalOpen(false);
-            }} 
-          />
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-pers-title"
+            onKeyDown={e => e.key === 'Escape' && setIsModalOpen(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] max-w-lg w-full p-8 relative shadow-2xl space-y-6"
+            >
+              <button 
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar modal de despesa pessoal"
+                className="absolute top-6 right-6 p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-brand-navy transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <h2 id="add-pers-title" className="text-2xl font-serif font-bold text-brand-navy">
+                Lançar no Caixa Pessoal
+              </h2>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setType('saída');
+                      setCategory('mercado');
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl font-bold text-xs transition-all",
+                      type === 'saída' ? "bg-red-600 text-white shadow-sm" : "text-gray-500 hover:text-red-600"
+                    )}
+                  >
+                    - Gastos Pessoais (Saída)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setType('entrada');
+                      setCategory('retirada do negócio');
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl font-bold text-xs transition-all",
+                      type === 'entrada' ? "bg-emerald-600 text-white shadow-sm" : "text-gray-500 hover:text-emerald-600"
+                    )}
+                  >
+                    + Retirada do Studio (Pró-Labore)
+                  </button>
+                </div>
+
+                <div>
+                  <label htmlFor="pers-desc" className="block text-xs font-bold text-gray-600 mb-1">Descrição *</label>
+                  <input 
+                    id="pers-desc"
+                    required
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder={type === 'saída' ? 'Ex: Compras de mercado da semana' : 'Ex: Transferência de Pró-Labore'}
+                    className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="pers-amount" className="block text-xs font-bold text-gray-600 mb-1">Valor (R$) *</label>
+                    <input 
+                      id="pers-amount"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={amount}
+                      onChange={e => setAmount(e.target.value)}
+                      placeholder="150.00"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="pers-category" className="block text-xs font-bold text-gray-600 mb-1">Categoria</label>
+                    <select 
+                      id="pers-category"
+                      value={category}
+                      onChange={e => setCategory(e.target.value as PersonalCategory)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer capitalize"
+                    >
+                      {PERSONAL_CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="pers-date" className="block text-xs font-bold text-gray-600 mb-1">Data</label>
+                  <input 
+                    id="pers-date"
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                  />
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3">
+                  <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    Registrar no Caixa Pessoal
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

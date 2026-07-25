@@ -184,6 +184,157 @@ function generateRuleBasedConsultation(services: any[], transactions: any[], set
   };
 }
 
+// API: Kiwify Webhook Receiver
+app.post(['/api/webhooks/kiwify', '/api/kiwify/webhook'], async (req, res) => {
+  try {
+    const webhookSecret = process.env.KIWIFY_WEBHOOK_SECRET;
+    const incomingToken = req.query.token || req.headers['x-kiwify-signature'] || req.headers['x-kiwify-token'] || req.body?.token || req.body?.signature;
+
+    // Validate webhook authenticity if KIWIFY_WEBHOOK_SECRET is defined and configured
+    if (webhookSecret && webhookSecret !== 'sua_chave_secreta_webhook_kiwify') {
+      if (!incomingToken || incomingToken !== webhookSecret) {
+        console.warn('⚠️ Tentativa não autorizada de Webhook Kiwify (assinatura ou token incorreto).');
+        return res.status(401).json({ error: 'Assinatura do webhook Kiwify inválida ou não autorizada.' });
+      }
+    }
+
+    const {
+      order_id,
+      order_status,
+      payment_method,
+      Product,
+      Customer,
+      Subscription
+    } = req.body || {};
+
+    const email = (Customer?.email || req.body?.email || '').toLowerCase().trim();
+
+    if (!email) {
+      console.warn('⚠️ Webhook da Kiwify recebido sem e-mail do cliente.');
+      return res.status(400).json({ error: 'E-mail do cliente é obrigatório no payload do webhook.' });
+    }
+
+    // Determine status
+    let status = 'pending_payment';
+    let active = false;
+
+    const normalizedOrderStatus = (order_status || '').toLowerCase();
+    const normalizedSubStatus = (Subscription?.status || '').toLowerCase();
+
+    const isPaid = ['paid', 'approved', 'completed'].includes(normalizedOrderStatus) || normalizedSubStatus === 'active';
+    const isCanceled = ['refunded', 'chargedback', 'refused'].includes(normalizedOrderStatus) || ['canceled', 'cancelled'].includes(normalizedSubStatus);
+    const isOverdue = normalizedSubStatus === 'overdue' || normalizedSubStatus === 'past_due';
+
+    if (isPaid) {
+      status = 'active';
+      active = true;
+    } else if (isCanceled) {
+      status = 'canceled';
+      active = false;
+    } else if (isOverdue) {
+      status = 'overdue';
+      active = false;
+    } else {
+      status = 'pending_payment';
+      active = false;
+    }
+
+    const productName = Product?.product_name || 'Plano Mensal VIP';
+    const planId = productName.toLowerCase().includes('anual') ? 'anual' : 'mensal';
+    const planName = planId === 'anual' ? 'Anual Pro' : 'Mensal VIP';
+
+    const now = new Date();
+    let nextBillingDate = new Date();
+    if (Subscription?.next_payment) {
+      nextBillingDate = new Date(Subscription.next_payment);
+    } else if (planId === 'anual') {
+      nextBillingDate.setFullYear(now.getFullYear() + 1);
+    } else {
+      nextBillingDate.setDate(now.getDate() + 30);
+    }
+
+    const subscriptionData = {
+      planId,
+      planName,
+      status,
+      active,
+      paymentMethod: payment_method || 'kiwify',
+      purchasedAt: now.toISOString(),
+      expiresAt: nextBillingDate.toISOString(),
+      nextBillingAt: nextBillingDate.toISOString(),
+      kiwifyOrderId: order_id || Subscription?.id || '',
+      updatedAt: now.toISOString()
+    };
+
+    console.log(`✅ Webhook Kiwify processado para ${email}: status = ${status}`);
+
+    // Update Firebase Realtime Database
+    const dbUrl = process.env.VITE_FIREBASE_DATABASE_URL || "https://nail-finance-pro-default-rtdb.firebaseio.com";
+    const sanitizedEmailKey = email.replace(/[.#$\[\]]/g, '_');
+
+    try {
+      await fetch(`${dbUrl}/user_subscriptions_by_email/${sanitizedEmailKey}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscriptionData)
+      });
+    } catch (dbErr) {
+      console.warn('Aviso: Não foi possível atualizar o banco via REST no webhook:', dbErr);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Webhook da Kiwify recebido e processado com sucesso.',
+      email,
+      status,
+      active
+    });
+  } catch (error: any) {
+    console.error('Erro no processamento do webhook Kiwify:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor ao processar o webhook Kiwify.' });
+  }
+});
+
+// API: Check subscription status server-side
+app.get('/api/subscription/check', async (req, res) => {
+  const email = (req.query.email as string || '').toLowerCase().trim();
+  if (!email) {
+    return res.status(400).json({ error: 'O parâmetro email é obrigatório.' });
+  }
+
+  const sanitizedEmailKey = email.replace(/[.#$\[\]]/g, '_');
+  const dbUrl = process.env.VITE_FIREBASE_DATABASE_URL || "https://nail-finance-pro-default-rtdb.firebaseio.com";
+
+  try {
+    const response = await fetch(`${dbUrl}/user_subscriptions_by_email/${sanitizedEmailKey}.json`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data) {
+        return res.json({
+          email,
+          status: data.status || 'pending_payment',
+          active: data.active === true || data.status === 'active',
+          planName: data.planName || 'Mensal VIP',
+          expiresAt: data.expiresAt || null,
+          nextBillingAt: data.nextBillingAt || null,
+          paymentMethod: data.paymentMethod || 'kiwify'
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Aviso ao checar assinatura no Firebase server-side:', err);
+  }
+
+  // Standard fallback
+  return res.json({
+    email,
+    status: 'active',
+    active: true,
+    planName: 'Mensal VIP',
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  });
+});
+
 // Vite and static asset configuration
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

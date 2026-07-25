@@ -1,27 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   ArrowUpCircle, 
   ArrowDownCircle, 
-  Filter, 
-  Calendar,
-  Search,
-  Trash2,
-  Tag,
-  CreditCard as CardIcon,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight
+  Search, 
+  Trash2, 
+  Wallet, 
+  X,
+  CreditCard,
+  Calendar as CalendarIcon,
+  Filter
 } from 'lucide-react';
-import { Card, Button, Badge, Input, Select } from '../components/UI';
+import { Card, Button, Badge, Input } from '../components/UI';
 import { formatCurrency, cn } from '../lib/utils';
 import { Transaction, StudioCategory, TransactionType } from '../types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 interface StudioCashProps {
   transactions: Transaction[];
+  selectedMonth: Date;
   onAdd: (t: Omit<Transaction, 'id'>) => void;
   onDelete: (id: string) => void;
 }
@@ -32,10 +32,19 @@ const STUDIO_EXIT_CATEGORIES: StudioCategory[] = [
   'aluguel', 'transporte', 'energia', 'internet', 'cursos', 'marketing', 'manutenção', 'outro'
 ];
 
-export function StudioCash({ transactions, onAdd, onDelete }: StudioCashProps) {
+export function StudioCash({ transactions, selectedMonth, onAdd, onDelete }: StudioCashProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'entrada' | 'saída'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Form fields
+  const [type, setType] = useState<TransactionType>('entrada');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<StudioCategory>('atendimento');
+  const [paymentMethod, setPaymentMethod] = useState('Pix');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   const studioTransactions = transactions.filter(t => !t.isPersonal);
   const filteredTransactions = studioTransactions.filter(t => {
@@ -48,73 +57,116 @@ export function StudioCash({ transactions, onAdd, onDelete }: StudioCashProps) {
   const totalOut = studioTransactions.filter(t => t.type === 'saída').reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIn - totalOut;
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+
+    if (!description.trim()) {
+      toast.error('Informe a descrição do lançamento.');
+      return;
+    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error('Informe um valor numérico válido maior que zero.');
+      return;
+    }
+
+    onAdd({
+      type,
+      description,
+      category,
+      amount: parsedAmount,
+      date: new Date(date).toISOString(),
+      paymentMethod,
+      isPersonal: false
+    });
+
+    setIsModalOpen(false);
+    setDescription('');
+    setAmount('');
+  };
+
+  const confirmDelete = (id: string) => {
+    onDelete(id);
+    setDeleteConfirmId(null);
+  };
+
   return (
     <div className="space-y-10 pb-12">
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          <h1 className="text-4xl font-serif font-bold text-brand-navy">Caixa do Studio</h1>
-          <p className="text-slate-400 mt-1 font-medium">Onde cada centavo conta para o seu crescimento.</p>
-        </motion.div>
+        <div>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Caixa do Studio</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">
+            Movimentações do negócio em <strong className="capitalize text-brand-navy">{format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}</strong>.
+          </p>
+        </div>
         
-        <Button onClick={() => setIsModalOpen(true)} size="lg" className="shadow-lg shadow-pink-100">
+        <Button onClick={() => setIsModalOpen(true)} size="lg" className="shadow-lg shadow-pink-200">
           <Plus size={20} className="mr-2" />
           Nova Movimentação
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard 
-          title="Entradas" 
-          value={totalIn} 
-          icon={<ArrowUpCircle className="text-brand-success" />} 
-          type="success"
-          delay={0.1}
-        />
-        <StatCard 
-          title="Saídas" 
-          value={totalOut} 
-          icon={<ArrowDownCircle className="text-brand-danger" />} 
-          type="danger"
-          delay={0.2}
-        />
-        <StatCard 
-          title="Saldo Studio" 
-          value={balance} 
-          icon={<Wallet className="text-white" />} 
-          type="navy"
-          delay={0.3}
-        />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <Card className="bg-white border-brand-border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-gray-400 uppercase">Entradas Studio</span>
+            <ArrowUpCircle className="text-emerald-500" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-emerald-600">{formatCurrency(totalIn)}</p>
+          <p className="text-xs text-gray-400 mt-2">Recebimentos de atendimentos e serviços.</p>
+        </Card>
+
+        <Card className="bg-white border-brand-border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-gray-400 uppercase">Saídas Studio</span>
+            <ArrowDownCircle className="text-red-500" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-red-600">{formatCurrency(totalOut)}</p>
+          <p className="text-xs text-gray-400 mt-2">Pagamentos de insumos e contas do studio.</p>
+        </Card>
+
+        <Card className="bg-brand-navy text-white border-none shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-blue-200 uppercase">Saldo do Caixa</span>
+            <Wallet className="text-pink-400" size={24} />
+          </div>
+          <p className="text-3xl font-serif font-bold text-white">{formatCurrency(balance)}</p>
+          <p className="text-xs text-blue-100/70 mt-2">Resultado líquido do negócio no mês.</p>
+        </Card>
       </div>
 
-      <Card className="overflow-hidden border-slate-100 shadow-brand">
-        <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex p-1 bg-white rounded-2xl border border-slate-100 w-fit">
+      {/* Filter and Table Card */}
+      <Card className="overflow-hidden border-brand-border bg-white shadow-sm p-0">
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex p-1 bg-white rounded-2xl border border-brand-border w-fit">
             <button 
+              type="button"
               onClick={() => setFilterType('all')}
               className={cn(
-                "px-6 py-2 rounded-xl text-sm font-bold transition-all", 
-                filterType === 'all' ? "bg-brand-navy text-white shadow-md" : "text-slate-400 hover:text-brand-navy"
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'all' ? "bg-brand-navy text-white shadow-sm" : "text-gray-500 hover:text-brand-navy"
               )}
             >
-              Tudo
+              Todas
             </button>
             <button 
+              type="button"
               onClick={() => setFilterType('entrada')}
               className={cn(
-                "px-6 py-2 rounded-xl text-sm font-bold transition-all", 
-                filterType === 'entrada' ? "bg-brand-success text-white shadow-md" : "text-slate-400 hover:text-brand-success"
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'entrada' ? "bg-emerald-600 text-white shadow-sm" : "text-gray-500 hover:text-emerald-600"
               )}
             >
               Entradas
             </button>
             <button 
+              type="button"
               onClick={() => setFilterType('saída')}
               className={cn(
-                "px-6 py-2 rounded-xl text-sm font-bold transition-all", 
-                filterType === 'saída' ? "bg-brand-danger text-white shadow-md" : "text-slate-400 hover:text-brand-danger"
+                "px-5 py-2 rounded-xl text-xs font-bold transition-all", 
+                filterType === 'saída' ? "bg-red-600 text-white shadow-sm" : "text-gray-500 hover:text-red-600"
               )}
             >
               Saídas
@@ -123,320 +175,241 @@ export function StudioCash({ transactions, onAdd, onDelete }: StudioCashProps) {
 
           <div className="flex-1 max-w-md">
             <Input 
+              aria-label="Buscar lançamentos no caixa do studio"
               placeholder="Buscar por descrição..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              icon={<Search size={18} className="text-slate-300" />}
               className="bg-white"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] border-b border-slate-50">
-                <th className="px-8 py-5">Descrição</th>
-                <th className="px-8 py-5">Categoria</th>
-                <th className="px-8 py-5">Data</th>
-                <th className="px-8 py-5">Valor</th>
-                <th className="px-8 py-5 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              <AnimatePresence mode="popLayout">
-                {filteredTransactions.map((t, index) => (
-                  <motion.tr 
-                    key={t.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, delay: index * 0.03 }}
-                    className="group hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                          t.type === 'entrada' ? "bg-emerald-50 text-brand-success" : "bg-red-50 text-brand-danger"
-                        )}>
-                          {t.type === 'entrada' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
-                        </div>
-                        <span className="font-bold text-brand-navy group-hover:text-brand-pink transition-colors">{t.description}</span>
-                      </div>
+        {filteredTransactions.length === 0 ? (
+          <div className="py-16 text-center text-gray-500">
+            <p className="font-bold text-brand-navy mb-1">Nenhuma movimentação registrada</p>
+            <p className="text-xs mb-4">Adicione suas entradas de atendimento ou despesas para manter o caixa atualizado.</p>
+            <Button size="sm" onClick={() => setIsModalOpen(true)}>
+              <Plus size={16} className="mr-1" /> Registrar Lançamento
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/30">
+                  <th className="px-6 py-4">Descrição</th>
+                  <th className="px-6 py-4">Categoria</th>
+                  <th className="px-6 py-4">Forma Pagto</th>
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Valor</th>
+                  <th className="px-6 py-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm font-semibold text-brand-navy">
+                {filteredTransactions.map(t => (
+                  <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-bold">{t.description}</td>
+                    <td className="px-6 py-4 capitalize text-xs">
+                      <Badge variant="outline">{t.category}</Badge>
                     </td>
-                    <td className="px-8 py-5">
-                      <Badge variant="default" className="bg-slate-100 text-slate-500 border-none">
-                        {t.category}
-                      </Badge>
+                    <td className="px-6 py-4 text-xs text-gray-500 font-medium">{t.paymentMethod || 'Pix'}</td>
+                    <td className="px-6 py-4 text-xs text-gray-500">
+                      {t.date ? format(parseISO(t.date), 'dd/MM/yyyy') : '-'}
                     </td>
-                    <td className="px-8 py-5 text-sm text-slate-400 font-medium">
-                      {format(parseISO(t.date), "dd 'de' MMM", { locale: ptBR })}
-                    </td>
-                    <td className={cn(
-                      "px-8 py-5 font-serif font-bold text-lg",
-                      t.type === 'entrada' ? "text-brand-success" : "text-brand-danger"
-                    )}>
+                    <td className={cn("px-6 py-4 font-bold text-base", t.type === 'entrada' ? "text-emerald-600" : "text-red-600")}>
                       {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
                     </td>
-                    <td className="px-8 py-5 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => onDelete(t.id)}
-                          className="p-2 text-slate-300 hover:text-brand-danger hover:bg-red-50 rounded-xl transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        type="button"
+                        onClick={() => setDeleteConfirmId(t.id)}
+                        aria-label={`Excluir lançamento ${t.description}`}
+                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
-              </AnimatePresence>
-              {filteredTransactions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-24 text-center">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar size={32} className="text-slate-200" />
-                    </div>
-                    <h3 className="text-xl font-serif font-bold text-brand-navy">Nenhuma movimentação</h3>
-                    <p className="text-slate-400 mt-2">Seus registros aparecerão aqui.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {isModalOpen && (
-        <TransactionModal 
-          isPersonal={false}
-          onClose={() => setIsModalOpen(false)} 
-          onSave={(t) => {
-            onAdd(t);
-            setIsModalOpen(false);
-          }} 
-        />
-      )}
-    </div>
-  );
-}
-
-function StatCard({ title, value, icon, type, delay }: any) {
-  const styles = {
-    success: "bg-emerald-50 border-emerald-100 text-brand-success",
-    danger: "bg-red-50 border-red-100 text-brand-danger",
-    navy: "bg-brand-navy border-brand-navy text-white"
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-    >
-      <Card className={cn("border-none shadow-lg", styles[type as keyof typeof styles])}>
-        <div className="flex items-center gap-4 mb-3">
-          <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center",
-            type === 'navy' ? "bg-white/10" : "bg-white shadow-sm"
-          )}>
-            {icon}
+              </tbody>
+            </table>
           </div>
-          <span className={cn(
-            "text-[10px] font-black uppercase tracking-[0.2em]",
-            type === 'navy' ? "text-white/60" : "opacity-70"
-          )}>
-            {title}
-          </span>
-        </div>
-        <p className="text-3xl font-serif font-bold">{formatCurrency(value)}</p>
+        )}
       </Card>
-    </motion.div>
-  );
-}
 
-export function TransactionModal({ isPersonal, onClose, onSave }: { isPersonal: boolean, onClose: () => void, onSave: (t: Omit<Transaction, 'id'>) => void }) {
-  const [formData, setFormData] = useState<Omit<Transaction, 'id'>>({
-    type: 'entrada',
-    description: '',
-    category: isPersonal ? 'mercado' : 'atendimento',
-    amount: 0,
-    date: new Date().toISOString().split('T')[0],
-    isPersonal,
-    paymentMethod: 'Pix',
-    notes: ''
-  });
-
-  const [applyCardFee, setApplyCardFee] = useState(false);
-  const [cardFeePercent, setCardFeePercent] = useState(3.5);
-
-  // Auto set fee percent based on payment method
-  useEffect(() => {
-    if (formData.paymentMethod === 'Cartão de Crédito') {
-      setCardFeePercent(3.5);
-      setApplyCardFee(true);
-    } else if (formData.paymentMethod === 'Cartão de Débito') {
-      setCardFeePercent(1.9);
-      setApplyCardFee(true);
-    } else {
-      setApplyCardFee(false);
-    }
-  }, [formData.paymentMethod]);
-
-  const cardFeeAmount = applyCardFee ? Number(((formData.amount * cardFeePercent) / 100).toFixed(2)) : 0;
-  const netAmount = Number((formData.amount - cardFeeAmount).toFixed(2));
-
-  const handleRegister = () => {
-    const finalAmount = applyCardFee ? netAmount : formData.amount;
-    const notesWithFee = applyCardFee 
-      ? `Valor bruto: R$ ${formData.amount.toFixed(2)} (Taxa de maquininha: ${cardFeePercent}% ou R$ ${cardFeeAmount.toFixed(2)})`
-      : formData.notes;
-
-    onSave({
-      ...formData,
-      amount: finalAmount,
-      notes: notesWithFee
-    });
-  };
-
-  const categories = isPersonal 
-    ? ['mercado', 'contas', 'transporte', 'saúde', 'lazer', 'retirada do negócio', 'outros']
-    : (formData.type === 'entrada' ? STUDIO_ENTRY_CATEGORIES : STUDIO_EXIT_CATEGORIES);
-
-  return (
-    <div className="fixed inset-0 bg-brand-navy/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-      >
-        <Card className="w-full max-w-lg shadow-2xl border-none p-8 bg-white rounded-[3rem]">
-          <h2 className="text-3xl font-serif font-bold text-brand-navy mb-8">Registrar Movimentação</h2>
-          <div className="space-y-6">
-            <div className="flex p-1 bg-slate-100 rounded-2xl">
-              <button 
-                onClick={() => setFormData({...formData, type: 'entrada', category: categories[0]})}
-                className={cn(
-                  "flex-1 py-3 rounded-xl text-sm font-bold transition-all", 
-                  formData.type === 'entrada' ? "bg-white text-brand-success shadow-sm" : "text-slate-400"
-                )}
-              >
-                Entrada
-              </button>
-              <button 
-                onClick={() => setFormData({...formData, type: 'saída', category: categories[0]})}
-                className={cn(
-                  "flex-1 py-3 rounded-xl text-sm font-bold transition-all", 
-                  formData.type === 'saída' ? "bg-white text-brand-danger shadow-sm" : "text-slate-400"
-                )}
-              >
-                Saída
-              </button>
-            </div>
-
-            <Input 
-              label="Descrição"
-              placeholder="Ex: Atendimento cliente Maria"
-              value={formData.description}
-              onChange={e => setFormData({...formData, description: e.target.value})}
-            />
-
-            <div className="grid grid-cols-2 gap-6">
-              <Input 
-                label={applyCardFee ? "Valor Cobrado R$" : "Valor (R$)"}
-                type="number"
-                value={formData.amount.toString()}
-                onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
-              />
-              <Input 
-                label="Data"
-                type="date"
-                value={formData.date}
-                onChange={e => setFormData({...formData, date: e.target.value})}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <Select 
-                label="Categoria"
-                value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value})}
-                options={categories.map(cat => ({ value: cat, label: cat }))}
-              />
-              {!isPersonal && (
-                <Select 
-                  label="Forma de Pagto"
-                  value={formData.paymentMethod}
-                  onChange={e => setFormData({...formData, paymentMethod: e.target.value})}
-                  options={[
-                    { value: 'Pix', label: 'Pix' },
-                    { value: 'Cartão de Crédito', label: 'Cartão de Crédito' },
-                    { value: 'Cartão de Débito', label: 'Cartão de Débito' },
-                    { value: 'Dinheiro', label: 'Dinheiro' }
-                  ]}
-                />
-              )}
-            </div>
-
-            {/* Simulated credit card taxes discount box */}
-            {formData.type === 'entrada' && !isPersonal && (formData.paymentMethod === 'Cartão de Crédito' || formData.paymentMethod === 'Cartão de Débito') && (
-              <div className="bg-pink-50/50 rounded-2xl p-4 border border-pink-100 flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-brand-navy">Simular Taxa de Maquininha?</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer"
-                      checked={applyCardFee}
-                      onChange={e => setApplyCardFee(e.target.checked)}
-                    />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-pink"></div>
-                  </label>
-                </div>
-                
-                {applyCardFee && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="space-y-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400 font-bold whitespace-nowrap">Taxa da Maquininha (%):</span>
-                      <input 
-                        type="number" 
-                        step="0.1"
-                        value={cardFeePercent} 
-                        onChange={e => setCardFeePercent(Number(e.target.value))}
-                        className="px-2 py-1 border border-brand-border rounded-lg text-xs w-16 text-center outline-none bg-white font-bold"
-                      />
-                    </div>
-                    <div className="border-t border-pink-100/50 pt-2 flex flex-col gap-1 text-xs font-semibold text-slate-500">
-                      <div className="flex justify-between">
-                        <span>Valor bruto:</span>
-                        <span>{formatCurrency(formData.amount)}</span>
-                      </div>
-                      <div className="flex justify-between text-brand-danger">
-                        <span>Desconto da taxa ({cardFeePercent}%):</span>
-                        <span>- {formatCurrency(cardFeeAmount)}</span>
-                      </div>
-                      <div className="flex justify-between border-t border-pink-100/60 pt-2 text-sm font-black text-brand-navy">
-                        <span>Líquido a receber:</span>
-                        <span className="text-brand-success">{formatCurrency(netAmount)}</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+      {/* Delete Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-tx-title"
+            onKeyDown={e => e.key === 'Escape' && setDeleteConfirmId(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center"
+            >
+              <h3 id="delete-tx-title" className="text-lg font-bold text-brand-navy">Remover Lançamento?</h3>
+              <p className="text-xs text-gray-500 font-medium">Esta movimentação será excluída dos seus totais do mês.</p>
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="ghost" fullWidth onClick={() => setDeleteConfirmId(null)}>
+                  Cancelar
+                </Button>
+                <Button variant="danger" fullWidth onClick={() => confirmDelete(deleteConfirmId)}>
+                  Remover
+                </Button>
               </div>
-            )}
-
-            <div className="flex gap-4 pt-6">
-              <Button variant="ghost" fullWidth onClick={onClose} className="text-slate-400">Cancelar</Button>
-              <Button fullWidth onClick={handleRegister} className="shadow-lg shadow-pink-100">Registrar</Button>
-            </div>
+            </motion.div>
           </div>
-        </Card>
-      </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Transaction Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-tx-title"
+            onKeyDown={e => e.key === 'Escape' && setIsModalOpen(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] max-w-lg w-full p-8 relative shadow-2xl space-y-6"
+            >
+              <button 
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar modal de lançamento"
+                className="absolute top-6 right-6 p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-brand-navy transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <h2 id="add-tx-title" className="text-2xl font-serif font-bold text-brand-navy">
+                Nova Movimentação (Studio)
+              </h2>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setType('entrada');
+                      setCategory('atendimento');
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl font-bold text-xs transition-all",
+                      type === 'entrada' ? "bg-emerald-600 text-white shadow-sm" : "text-gray-500 hover:text-emerald-600"
+                    )}
+                  >
+                    + Entrada (Recebimento)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setType('saída');
+                      setCategory('lixas');
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl font-bold text-xs transition-all",
+                      type === 'saída' ? "bg-red-600 text-white shadow-sm" : "text-gray-500 hover:text-red-600"
+                    )}
+                  >
+                    - Saída (Despesa)
+                  </button>
+                </div>
+
+                <div>
+                  <label htmlFor="tx-desc" className="block text-xs font-bold text-gray-600 mb-1">Descrição *</label>
+                  <input 
+                    id="tx-desc"
+                    required
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder={type === 'entrada' ? 'Ex: Atendimento cliente Flávia' : 'Ex: Compra de brocas e esmaltes'}
+                    className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="tx-amount" className="block text-xs font-bold text-gray-600 mb-1">Valor (R$) *</label>
+                    <input 
+                      id="tx-amount"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={amount}
+                      onChange={e => setAmount(e.target.value)}
+                      placeholder="120.00"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="tx-category" className="block text-xs font-bold text-gray-600 mb-1">Categoria</label>
+                    <select 
+                      id="tx-category"
+                      value={category}
+                      onChange={e => setCategory(e.target.value as StudioCategory)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer capitalize"
+                    >
+                      {(type === 'entrada' ? STUDIO_ENTRY_CATEGORIES : STUDIO_EXIT_CATEGORIES).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="tx-paymethod" className="block text-xs font-bold text-gray-600 mb-1">Forma de Pagamento</label>
+                    <select 
+                      id="tx-paymethod"
+                      value={paymentMethod}
+                      onChange={e => setPaymentMethod(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer"
+                    >
+                      <option value="Pix">Pix</option>
+                      <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      <option value="Cartão de Débito">Cartão de Débito</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="tx-date" className="block text-xs font-bold text-gray-600 mb-1">Data</label>
+                    <input 
+                      id="tx-date"
+                      type="date"
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3">
+                  <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    Registrar Lançamento
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

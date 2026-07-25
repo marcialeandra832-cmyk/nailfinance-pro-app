@@ -1,133 +1,208 @@
-import React, { useState } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
-import { Card, Button } from '../components/UI';
-import { formatCurrency, cn } from '../lib/utils';
-import { FinancialSummary, Transaction, Service, UserSettings } from '../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Sparkles, 
+  TrendingUp, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Info, 
+  RefreshCw, 
+  Lightbulb, 
+  DollarSign, 
+  Clock, 
+  Zap,
+  Target
+} from 'lucide-react';
+import { Card, Button, Badge } from '../components/UI';
+import { Service, Transaction, UserSettings, FinancialSummary, AIInsight } from '../types';
+import { motion } from 'motion/react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { formatCurrency } from '../lib/utils';
+import { toast } from 'sonner';
 
 interface AIAnalysisProps {
-  summary: FinancialSummary;
-  transactions: Transaction[];
   services: Service[];
-  settings?: UserSettings;
+  transactions: Transaction[];
+  settings: UserSettings;
+  summary: FinancialSummary;
+  selectedMonth: Date;
 }
 
-export function AIAnalysis({ summary, transactions, services, settings }: AIAnalysisProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+export function AIAnalysis({ services, transactions, settings, summary, selectedMonth }: AIAnalysisProps) {
+  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
+  const [suggestion, setSuggestion] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const generateAnalysis = async () => {
-    setIsAnalyzing(true);
-    setErrorMsg(null);
+  const fetchAIConsultation = useCallback(async () => {
+    setLoading(true);
     try {
-      const activeSettings = settings || JSON.parse(localStorage.getItem('nailfinance_settings') || '{}');
       const response = await fetch('/api/ai-consult', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           services,
           transactions,
-          settings: activeSettings,
+          settings,
           summary
         })
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao processar análise inteligente.');
+        throw new Error('Falha na resposta do servidor.');
       }
 
       const data = await response.json();
-      setAnalysis(data);
-    } catch (e: any) {
-      console.error(e);
-      setErrorMsg('Ocorreu um erro ao gerar sua consultoria de IA. Por favor, tente novamente.');
+      if (data.insights && Array.isArray(data.insights)) {
+        setInsights(data.insights);
+      }
+      if (data.suggestion) {
+        setSuggestion(data.suggestion);
+      }
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Erro na consultoria IA:', error);
+      toast.error('Não foi possível gerar a análise agora. Tente novamente em instantes.');
     } finally {
-      setIsAnalyzing(false);
+      setLoading(false);
+    }
+  }, [services, transactions, settings, summary]);
+
+  useEffect(() => {
+    fetchAIConsultation();
+  }, [fetchAIConsultation]);
+
+  const getInsightIcon = (type: string) => {
+    switch (type) {
+      case 'success': return <CheckCircle2 className="text-emerald-500" size={20} />;
+      case 'warning': return <AlertTriangle className="text-amber-500" size={20} />;
+      case 'danger': return <AlertTriangle className="text-red-500" size={20} />;
+      default: return <Info className="text-blue-500" size={20} />;
     }
   };
 
-  const getIcon = (type: string) => {
+  const getInsightBg = (type: string) => {
     switch (type) {
-      case 'success':
-        return <CheckCircle2 className="text-brand-success" size={24} />;
-      case 'warning':
-        return <AlertTriangle className="text-amber-500" size={24} />;
-      case 'danger':
-        return <TrendingDown className="text-brand-danger" size={24} />;
-      default:
-        return <Lightbulb className="text-blue-500" size={24} />;
+      case 'success': return 'bg-emerald-50/80 border-emerald-100 text-emerald-950';
+      case 'warning': return 'bg-amber-50/80 border-amber-100 text-amber-950';
+      case 'danger': return 'bg-red-50/80 border-red-100 text-red-950';
+      default: return 'bg-blue-50/80 border-blue-100 text-blue-950';
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <header>
-        <h1 className="text-3xl font-bold text-brand-navy flex items-center gap-3">
-          Análise IA 
-        </h1>
-        <p className="text-gray-500">Inteligência artificial traduzindo seus números em decisões</p>
+    <div className="space-y-10 pb-12">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <Badge variant="primary" className="mb-2 inline-flex items-center gap-1.5 px-3 py-1">
+            <Sparkles size={12} className="text-brand-primary" />
+            IA Financeira para Nail Designers
+          </Badge>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Análise & Consultoria Virtual</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">
+            Diagnóstico baseado no seu catálogo real ({services.length} serviços) e nas movimentações de <strong className="capitalize text-brand-navy">{format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}</strong>.
+          </p>
+        </div>
+        
+        <Button 
+          onClick={fetchAIConsultation} 
+          disabled={loading}
+          variant="secondary"
+          size="md"
+          className="shadow-md"
+        >
+          <RefreshCw size={18} className={loading ? "animate-spin mr-2" : "mr-2"} />
+          {loading ? "Analisando dados..." : "Atualizar Análise"}
+        </Button>
       </header>
 
-      {errorMsg && (
-        <Card className="border-red-100 bg-red-50 text-red-700 p-6 text-center max-w-2xl mx-auto">
-          <p className="font-bold">{errorMsg}</p>
-          <Button variant="outline" size="sm" className="mt-4 border-red-200 text-red-800 hover:bg-red-100" onClick={generateAnalysis}>
-            <RefreshCw size={14} className="mr-1.5 animate-spin" /> Tentar Novamente
-          </Button>
+      {/* Snapshot Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <Card className="bg-white border-brand-border">
+          <p className="text-xs font-bold uppercase text-gray-400">Faturamento Mês</p>
+          <p className="text-2xl font-serif font-bold text-brand-navy mt-1">{formatCurrency(summary.studioRevenue)}</p>
+          <p className="text-xs text-gray-400 mt-1">Meta: {formatCurrency(settings.revenueGoal)}</p>
         </Card>
-      )}
 
-      {!analysis && !isAnalyzing ? (
-        <Card className="py-20 flex flex-col items-center text-center max-w-2xl mx-auto">
-          <div className="w-24 h-24 bg-pink-50 rounded-full flex items-center justify-center text-brand-pink mb-6 animate-pulse">
-            <DollarSign size={48} />
-          </div>
-          <h2 className="text-2xl font-bold text-brand-navy mb-4">Pronta para entender seu lucro real?</h2>
-          <p className="text-gray-500 mb-8 px-10">
-            Nossa IA vai analisar todas as suas movimentações, custos de materiais e serviços para te dar um diagnóstico completo da sua saúde financeira.
-          </p>
-          <Button size="lg" onClick={generateAnalysis}>
-            <DollarSign size={20} />
-            Gerar consultoria de IA
-          </Button>
+        <Card className="bg-white border-brand-border">
+          <p className="text-xs font-bold uppercase text-gray-400">Lucro Real Líquido</p>
+          <p className="text-2xl font-serif font-bold text-emerald-600 mt-1">{formatCurrency(summary.realProfit)}</p>
+          <p className="text-xs text-gray-400 mt-1">Margem: {summary.profitMargin.toFixed(1)}%</p>
         </Card>
-      ) : isAnalyzing ? (
-        <Card className="py-20 flex flex-col items-center text-center">
-          <Loader2 size={48} className="text-brand-pink animate-spin mb-6" />
-          <h2 className="text-2xl font-bold text-brand-navy mb-2">Analisando seus dados...</h2>
-          <p className="text-gray-500">Nossa Inteligência Artificial está calculando suas margens reais, taxas de labor por hora e identificando gargalos.</p>
+
+        <Card className="bg-white border-brand-border">
+          <p className="text-xs font-bold uppercase text-gray-400">Procedimentos Cadastrados</p>
+          <p className="text-2xl font-serif font-bold text-brand-navy mt-1">{services.length} <span className="text-xs font-normal text-gray-400">serviços</span></p>
+          <p className="text-xs text-gray-400 mt-1">Preço médio: {formatCurrency(services.length > 0 ? services.reduce((a, b) => a + b.price, 0) / services.length : 0)}</p>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in zoom-in-95 duration-500">
-          {(analysis.insights || []).map((item: any, idx: number) => (
-            <Card key={idx} className="hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-4">
-                <div className="mt-1">{getIcon(item.type)}</div>
-                <div>
-                  <h3 className="text-lg font-bold text-brand-navy mb-1">{item.title}</h3>
-                  <p className="text-gray-600 leading-relaxed font-semibold text-sm">{item.text}</p>
-                </div>
+      </div>
+
+      {/* Main Advisory Box */}
+      <Card className="bg-gradient-to-br from-brand-navy via-slate-900 to-brand-navy border-none text-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-primary/10 rounded-full blur-3xl" />
+        
+        <div className="relative z-10 space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-brand-primary/20 flex items-center justify-center text-pink-400">
+                <Lightbulb size={22} />
               </div>
-            </Card>
-          ))}
-          
-          <Card className="md:col-span-2 bg-gradient-to-br from-brand-navy to-slate-950 text-white border-none p-8">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3 text-brand-pink">
-                <DollarSign size={24} />
-                <h3 className="text-xl font-bold">Recomendação Estratégica Adicional</h3>
+              <div>
+                <h2 className="text-xl font-serif font-bold text-white">Recomendação Estratégica</h2>
+                {lastUpdated && (
+                  <p className="text-[11px] text-blue-200/60 font-medium">
+                    Gerado em {format(lastUpdated, "HH:mm:ss 'de' dd/MM/yyyy")}
+                  </p>
+                )}
               </div>
-              <p className="text-blue-100 text-sm leading-relaxed whitespace-pre-line font-medium">{analysis.suggestion}</p>
             </div>
-          </Card>
-
-          <div className="md:col-span-2 flex justify-center pt-8">
-            <Button variant="outline" onClick={() => setAnalysis(null)}>
-              Nova Análise
-            </Button>
           </div>
+
+          {loading ? (
+            <div className="py-12 text-center text-blue-100/70 space-y-3">
+              <RefreshCw size={32} className="animate-spin mx-auto text-pink-400" />
+              <p className="font-bold text-sm">Nossa IA está cruzando o custo dos seus esmaltes e tempo de atendimento...</p>
+            </div>
+          ) : (
+            <div className="text-blue-50 text-sm md:text-base leading-relaxed font-medium space-y-4">
+              <p className="whitespace-pre-line">{suggestion}</p>
+            </div>
+          )}
         </div>
-      )}
+      </Card>
+
+      {/* Insights Section */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-serif font-bold text-brand-navy">Insights de Desempenho</h3>
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="h-28 bg-gray-100 animate-pulse rounded-2xl" />
+            <div className="h-28 bg-gray-100 animate-pulse rounded-2xl" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {insights.map((insight, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.1 }}
+                className={`p-6 rounded-3xl border ${getInsightBg(insight.type)} space-y-2 shadow-sm`}
+              >
+                <div className="flex items-center gap-3">
+                  {getInsightIcon(insight.type)}
+                  <h4 className="font-bold text-base font-serif">{insight.title}</h4>
+                </div>
+                <p className="text-xs md:text-sm font-medium leading-relaxed opacity-90 pl-8">
+                  {insight.text}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

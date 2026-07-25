@@ -2,24 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
-  Filter, 
-  MoreVertical, 
-  Clock, 
-  DollarSign, 
   Trash2, 
   Edit2, 
-  TrendingUp,
-  Tag
+  Clock, 
+  Calculator, 
+  ChevronDown, 
+  ChevronUp, 
+  X,
+  Sparkles,
+  Tag,
+  Check
 } from 'lucide-react';
 import { Card, Button, Badge, Input, Select } from '../components/UI';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency } from '../lib/utils';
 import { Service, ServiceCategory, UserSettings } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calculator, ChevronDown, ChevronUp, Percent, Briefcase } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CatalogProps {
   services: Service[];
   onAdd: (service: Omit<Service, 'id'>) => void;
+  onUpdate?: (service: Service) => void;
   onDelete: (id: string) => void;
   settings?: UserSettings;
 }
@@ -34,28 +37,34 @@ const CATEGORIES: ServiceCategory[] = [
   'Outros'
 ];
 
-export function Catalog({ services, onAdd, onDelete, settings }: CatalogProps) {
+export function Catalog({ services, onAdd, onUpdate, onDelete, settings }: CatalogProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   const [filter, setFilter] = useState<ServiceCategory | 'Todos'>('Todos');
   const [search, setSearch] = useState('');
 
-  // Hourly rate interactive calculations
+  // Form fields
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [materialCost, setMaterialCost] = useState('');
+  const [duration, setDuration] = useState('1h 30min');
+  const [category, setCategory] = useState<ServiceCategory>('Alongamento');
+  const [notes, setNotes] = useState('');
+
+  // Hourly Rate Simulator
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [desiredSalary, setDesiredSalary] = useState(settings?.profitGoal || 4500);
   const [fixedCosts, setFixedCosts] = useState(1200);
   const [workDaysWeek, setWorkDaysWeek] = useState(5);
   const [workHoursDay, setWorkHoursDay] = useState(7);
-  
-  // Dynamic selected service simulation
   const [selectedServiceSimId, setSelectedServiceSimId] = useState<string>(services[0]?.id || '');
 
-  // Live calculations
   const totalHoursMonth = workDaysWeek * 4 * workHoursDay;
   const costOfHour = totalHoursMonth > 0 ? (desiredSalary + fixedCosts) / totalHoursMonth : 0;
-  
   const selectedServiceSim = services.find(s => s.id === selectedServiceSimId);
-  
-  // Helper to parse duration: e.g. "2h 30min" -> 2.5
+
   const durationInHours = React.useMemo(() => {
     if (!selectedServiceSim) return 0;
     const str = selectedServiceSim.duration;
@@ -77,12 +86,78 @@ export function Catalog({ services, onAdd, onDelete, settings }: CatalogProps) {
   const rawHourlyCostSim = durationInHours * costOfHour;
   const totalSuggestedMinSim = Number((rawHourlyCostSim + (selectedServiceSim?.materialCost || 0)).toFixed(2));
 
-  // Auto fallback for selected simulation ID
   useEffect(() => {
     if (services.length > 0 && !selectedServiceSimId) {
       setSelectedServiceSimId(services[0].id);
     }
   }, [services, selectedServiceSimId]);
+
+  const openNewModal = () => {
+    setEditingService(null);
+    setName('');
+    setPrice('');
+    setMaterialCost('');
+    setDuration('1h 30min');
+    setCategory('Alongamento');
+    setNotes('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (s: Service) => {
+    setEditingService(s);
+    setName(s.name);
+    setPrice(String(s.price));
+    setMaterialCost(String(s.materialCost));
+    setDuration(s.duration);
+    setCategory(s.category);
+    setNotes(s.notes || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedPrice = parseFloat(price);
+    const parsedCost = parseFloat(materialCost) || 0;
+
+    if (!name.trim()) {
+      toast.error('Informe o nome do procedimento.');
+      return;
+    }
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      toast.error('Informe um valor de preço válido.');
+      return;
+    }
+
+    if (editingService) {
+      if (onUpdate) {
+        onUpdate({
+          ...editingService,
+          name,
+          price: parsedPrice,
+          materialCost: parsedCost,
+          duration,
+          category,
+          notes
+        });
+      }
+    } else {
+      onAdd({
+        name,
+        price: parsedPrice,
+        materialCost: parsedCost,
+        duration,
+        category,
+        notes
+      });
+    }
+
+    setIsModalOpen(false);
+  };
+
+  const confirmDelete = (id: string) => {
+    onDelete(id);
+    setDeleteConfirmId(null);
+  };
 
   const filteredServices = services.filter(s => 
     (filter === 'Todos' || s.category === filter) &&
@@ -91,40 +166,36 @@ export function Catalog({ services, onAdd, onDelete, settings }: CatalogProps) {
 
   return (
     <div className="space-y-10 pb-12">
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          <h1 className="text-4xl font-serif font-bold text-brand-navy">Cardápio de Serviços</h1>
-          <p className="text-slate-400 mt-1 font-medium">Gerencie seus procedimentos e precificação.</p>
-        </motion.div>
+        <div>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Cardápio de Serviços</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">Precifique procedimentos considerando insumos e tempo de bancada.</p>
+        </div>
         
-        <Button onClick={() => setIsModalOpen(true)} size="lg" className="shadow-lg shadow-pink-100">
+        <Button onClick={openNewModal} size="lg" className="shadow-lg shadow-pink-200">
           <Plus size={20} className="mr-2" />
-          Novo Serviço
+          Novo Procedimento
         </Button>
       </header>
 
-      {/* Interactive Simulador de Precificação de Horas */}
-      <Card className="bg-gradient-to-br from-brand-navy via-slate-900 to-brand-navy border-none text-white p-6 md:p-8 rounded-[3rem] relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-pink/10 rounded-full blur-[80px] -translate-y-1/3 translate-x-1/3" />
-        
+      {/* Simulator Card */}
+      <Card className="bg-gradient-to-br from-brand-navy via-slate-900 to-brand-navy border-none text-white p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 text-brand-pink mb-1">
-              <Calculator size={20} />
-              <span className="text-xs font-black uppercase tracking-[0.2em]">Exclusivo Nail Design</span>
+            <div className="flex items-center gap-2 text-pink-400 mb-1">
+              <Calculator size={18} />
+              <span className="text-[10px] font-black uppercase tracking-wider">Metodologia para Nail Designers</span>
             </div>
-            <h2 className="text-2xl font-serif font-black">Simulador Inteligente de Hora Trabalhada</h2>
-            <p className="text-slate-300 text-sm mt-1">Descubra se seus preços estão cobrindo seu salário desejado + custos fixos.</p>
+            <h2 className="text-2xl font-serif font-bold">Simulador de Valor de Hora Trabalhada</h2>
+            <p className="text-blue-100/80 text-xs md:text-sm mt-1">Calcule se seus preços cobrem seu salário pretendido + custos operacionais fixos.</p>
           </div>
           <Button 
             onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
-            className="bg-brand-pink hover:bg-brand-pink/90 border-none text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold border-none"
           >
-            {isSimulatorOpen ? "Recolher Simulador" : "Simular Meus Preços"}
-            {isSimulatorOpen ? <ChevronUp size={16} className="ml-1.5 inline" /> : <ChevronDown size={16} className="ml-1.5 inline" />}
+            {isSimulatorOpen ? "Ocultar Simulador" : "Simular Preço Ideal"}
+            {isSimulatorOpen ? <ChevronUp size={16} className="ml-2 inline" /> : <ChevronDown size={16} className="ml-2 inline" />}
           </Button>
         </div>
 
@@ -134,535 +205,339 @@ export function Catalog({ services, onAdd, onDelete, settings }: CatalogProps) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-8 pt-8 border-t border-white/10 space-y-8"
+              className="mt-6 pt-6 border-t border-white/10 space-y-6"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-2">Salário Desejado Líquido (R$)</label>
+                  <label htmlFor="sim-salary" className="text-xs font-bold text-slate-300 block mb-1">Salário Desejado (Pró-Labore)</label>
                   <input 
+                    id="sim-salary"
                     type="number" 
                     value={desiredSalary} 
                     onChange={e => setDesiredSalary(Number(e.target.value))}
-                    className="w-full bg-white/10 border border-white/10 rounded-2xl p-3 text-white text-sm outline-none focus:border-brand-pink/50 font-bold"
+                    className="w-full bg-white/10 border border-white/20 rounded-xl p-2.5 text-white text-sm outline-none font-bold focus:border-brand-primary"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Sua retirada pessoal (Pró-Labore) desejada.</p>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-2">Custos Fixos do Studio (R$)</label>
+                  <label htmlFor="sim-costs" className="text-xs font-bold text-slate-300 block mb-1">Custos Fixos Studio (R$)</label>
                   <input 
+                    id="sim-costs"
                     type="number" 
                     value={fixedCosts} 
                     onChange={e => setFixedCosts(Number(e.target.value))}
-                    className="w-full bg-white/10 border border-white/10 rounded-2xl p-3 text-white text-sm outline-none focus:border-brand-pink/50 font-bold"
+                    className="w-full bg-white/10 border border-white/20 rounded-xl p-2.5 text-white text-sm outline-none font-bold focus:border-brand-primary"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Aluguel, luz, internet, MEI, água.</p>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-2">Dias de Atend. na Semana</label>
+                  <label htmlFor="sim-days" className="text-xs font-bold text-slate-300 block mb-1">Dias por Semana</label>
                   <input 
+                    id="sim-days"
                     type="number" 
                     value={workDaysWeek} 
                     onChange={e => setWorkDaysWeek(Number(e.target.value))}
-                    className="w-full bg-white/10 border border-white/10 rounded-2xl p-3 text-white text-sm outline-none focus:border-brand-pink/50 font-bold"
+                    className="w-full bg-white/10 border border-white/20 rounded-xl p-2.5 text-white text-sm outline-none font-bold focus:border-brand-primary"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Ex: 5 dias (terça a sábado).</p>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-2">Horas Úteis Livres / Dia</label>
+                  <label htmlFor="sim-hours" className="text-xs font-bold text-slate-300 block mb-1">Horas por Dia</label>
                   <input 
+                    id="sim-hours"
                     type="number" 
                     value={workHoursDay} 
                     onChange={e => setWorkHoursDay(Number(e.target.value))}
-                    className="w-full bg-white/10 border border-white/10 rounded-2xl p-3 text-white text-sm outline-none focus:border-brand-pink/50 font-bold"
+                    className="w-full bg-white/10 border border-white/20 rounded-xl p-2.5 text-white text-sm outline-none font-bold focus:border-brand-primary"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Foco real em atendimento de mesa.</p>
                 </div>
               </div>
 
-              <div className="bg-white/5 rounded-3xl p-6 border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Resultado do Custo da Hora</p>
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="text-4xl font-serif font-black text-brand-pink">{formatCurrency(costOfHour)}</span>
-                    <span className="text-xs text-slate-300">por hora de mesa trabalhada</span>
-                  </div>
-                  <p className="text-xs text-slate-400">Total de tempo útil: <span className="text-white font-bold">{totalHoursMonth} horas</span> por mês.</p>
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs text-pink-300 font-bold uppercase">Custo Médio da sua Hora</p>
+                  <p className="text-3xl font-serif font-bold text-white">{formatCurrency(costOfHour)}/hora</p>
                 </div>
                 
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-xs text-slate-300 max-w-md">
-                  <p className="font-semibold block mb-1">Entenda o Cálculo:</p>
-                  Cada hora sua tem um custo mínimo operacional de <span className="text-brand-pink font-bold">{formatCurrency(costOfHour)}</span>. Multiplicando essa hora sobre o tempo que você demora no alongamento e somando os insumos consumidos, chegamos ao seu preço mínimo de venda!
-                </div>
-              </div>
-
-              {/* Dynamic catalog test */}
-              {services.length > 0 && (
-                <div className="space-y-4">
-                  <div className="border-t border-white/10 pt-6">
-                    <h3 className="font-serif font-black text-lg text-white">Análise de Viabilidade do Catálogo</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Selecione um serviço cadastrado para conferir o diagnóstico financeiro dele.</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-2">Escolha o Serviço</label>
-                      <select 
-                        value={selectedServiceSimId}
-                        onChange={e => setSelectedServiceSimId(e.target.value)}
-                        className="w-full bg-white/10 border border-white/10 rounded-2xl p-3 text-white text-sm outline-none focus:border-brand-pink/50 font-bold"
-                      >
-                        {services.map(s => (
-                          <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                            {s.name} ({s.duration})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
+                {services.length > 0 && (
+                  <div className="space-y-1 md:text-right">
+                    <label htmlFor="sim-service-select" className="text-xs text-gray-300 font-bold block">Testar Procedimento:</label>
+                    <select
+                      id="sim-service-select"
+                      value={selectedServiceSimId}
+                      onChange={e => setSelectedServiceSimId(e.target.value)}
+                      className="bg-brand-navy border border-white/20 rounded-xl text-xs text-white p-2 font-bold"
+                    >
+                      {services.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.price)})</option>
+                      ))}
+                    </select>
                     {selectedServiceSim && (
-                      <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/5 p-6 rounded-3xl border border-white/10">
-                        <div className="space-y-4">
-                          <p className="text-sm font-bold text-slate-300 border-b border-white/10 pb-2">Custos Realistas:</p>
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Tempo de Cadeira ({selectedServiceSim.duration}):</span>
-                              <span className="font-bold text-amber-400">{formatCurrency(rawHourlyCostSim)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Insumos & Material:</span>
-                              <span className="font-bold text-brand-danger">{formatCurrency(selectedServiceSim.materialCost)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/10 pt-2 font-black text-sm">
-                              <span>Soma de Custos Básicos:</span>
-                              <span className="text-brand-pink">{formatCurrency(totalSuggestedMinSim)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col justify-center items-center text-center p-4 rounded-xl bg-white/[0.02]">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Diagnóstico Financeiro</p>
-                          <p className="text-2xl font-serif font-black text-white">
-                            {selectedServiceSim.price >= totalSuggestedMinSim ? (
-                              <span className="text-emerald-400">{formatCurrency(selectedServiceSim.price)} (Lucro)</span>
-                            ) : (
-                              <span className="text-red-400">{formatCurrency(selectedServiceSim.price)} (Prejuízo)</span>
-                            )}
-                          </p>
-                          {selectedServiceSim.price >= totalSuggestedMinSim ? (
-                            <div className="mt-2 text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-xl border border-emerald-500/20 font-bold">
-                              Lucro Real de {formatCurrency(selectedServiceSim.price - totalSuggestedMinSim)} por atendimento!
-                            </div>
-                          ) : (
-                            <div className="mt-2 text-xs bg-red-500/10 text-red-400 px-3 py-1.5 rounded-xl border border-red-500/20 font-bold">
-                              Perda de {formatCurrency(totalSuggestedMinSim - selectedServiceSim.price)} por atendimento!
-                            </div>
-                          )}
-                          <p className="text-[10px] text-slate-300 mt-2.5 leading-relaxed">
-                            {selectedServiceSim.price >= totalSuggestedMinSim 
-                              ? "Excelente! Esse preço cobre seu Pró-labore e garante sobra saudável para investir no studio."
-                              : "Perigo! O valor atualmente cobrado não cobre nem o seu tempo + materiais. Você está pagando para trabalhar!"}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="text-xs text-emerald-400 font-bold mt-1">
+                        Preço Sugerido Mínimo: {formatCurrency(totalSuggestedMinSim)}
+                      </p>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </Card>
 
-      {/* Filters */}
-      <Card className="bg-white/50 backdrop-blur-sm border-slate-100">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
-            <Input 
-              placeholder="Buscar serviço pelo nome..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              icon={<Search size={18} className="text-slate-400" />}
-            />
-          </div>
-          <Select 
-            label="Categoria"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
-            options={[
-              { value: 'Todos', label: 'Todas as Categorias' },
-              ...CATEGORIES.map(cat => ({ value: cat, label: cat }))
-            ]}
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setFilter('Todos')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              filter === 'Todos' ? 'bg-brand-navy text-white shadow-md' : 'bg-white text-gray-500 border border-brand-border hover:bg-gray-50'
+            }`}
+          >
+            Todos ({services.length})
+          </button>
+          {CATEGORIES.map(cat => {
+            const count = services.filter(s => s.category === cat).length;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFilter(cat)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  filter === cat ? 'bg-brand-navy text-white shadow-md' : 'bg-white text-gray-500 border border-brand-border hover:bg-gray-50'
+                }`}
+              >
+                {cat} {count > 0 && `(${count})`}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="w-full sm:w-72">
+          <Input 
+            aria-label="Buscar procedimento no catálogo"
+            placeholder="Buscar procedimento..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="bg-white"
           />
         </div>
-      </Card>
+      </div>
 
       {/* Services Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout">
-          {filteredServices.map((service, index) => (
-            <motion.div
-              key={service.id}
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <Card className="group hover:border-brand-pink/30 transition-all duration-300 h-full flex flex-col">
-                <div className="flex justify-between items-start mb-6">
-                  <Badge variant="default" className="bg-pink-50 text-brand-pink border-none font-bold px-3 py-1">
-                    {service.category}
-                  </Badge>
-                  <button className="text-slate-300 hover:text-brand-navy transition-colors">
-                    <MoreVertical size={20} />
-                  </button>
-                </div>
+      {filteredServices.length === 0 ? (
+        <Card className="py-16 text-center text-gray-500 bg-white border-brand-border">
+          <p className="font-bold text-lg text-brand-navy mb-2">Nenhum procedimento encontrado</p>
+          <p className="text-xs mb-6">Cadastre seus serviços de unha para visualizar margens e preços.</p>
+          <Button onClick={openNewModal} size="sm">
+            <Plus size={16} className="mr-1" /> Cadastrar Procedimento
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredServices.map(service => {
+            const margin = service.price > 0 
+              ? (((service.price - service.materialCost) / service.price) * 100) 
+              : 0;
 
-                <h3 className="text-xl font-serif font-bold text-brand-navy mb-2 group-hover:text-brand-pink transition-colors">
-                  {service.name}
-                </h3>
-                
-                <div className="space-y-3 mt-auto pt-6 border-t border-slate-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-slate-400 text-sm font-medium">
-                      <Clock size={14} className="mr-2" />
-                      {service.duration}
-                    </div>
-                    <div className="text-2xl font-serif font-bold text-brand-navy">
-                      {formatCurrency(service.price)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                    <span className="text-slate-300">Custo Mat.</span>
-                    <span className="text-brand-danger">{formatCurrency(service.materialCost)}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="flex items-center text-brand-success text-sm font-black">
-                      <TrendingUp size={14} className="mr-1.5" />
-                      Lucro: {formatCurrency(service.price - service.materialCost)}
-                    </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-slate-400 hover:text-brand-navy hover:bg-slate-50 rounded-xl transition-all">
+            return (
+              <Card key={service.id} className="bg-white border-brand-border hover:shadow-lg transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <Badge variant="primary">{service.category}</Badge>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => openEditModal(service)}
+                        aria-label={`Editar ${service.name}`}
+                        className="p-1.5 text-gray-400 hover:text-brand-navy rounded-lg hover:bg-gray-100 transition-colors"
+                      >
                         <Edit2 size={16} />
                       </button>
                       <button 
-                        onClick={() => onDelete(service.id)}
-                        className="p-2 text-slate-400 hover:text-brand-danger hover:bg-red-50 rounded-xl transition-all"
+                        type="button"
+                        onClick={() => setDeleteConfirmId(service.id)}
+                        aria-label={`Excluir ${service.name}`}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
+
+                  <h3 className="text-xl font-serif font-bold text-brand-navy mb-2">{service.name}</h3>
+
+                  <div className="space-y-2 py-3 border-y border-gray-100 text-xs font-semibold text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Preço Cobrado:</span>
+                      <strong className="text-brand-navy text-sm">{formatCurrency(service.price)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Custo de Material Estimado:</span>
+                      <span className="text-red-600 font-bold">{formatCurrency(service.materialCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Duração do Atendimento:</span>
+                      <span className="flex items-center gap-1 text-gray-500 font-bold">
+                        <Clock size={12} /> {service.duration}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-between">
+                  <div className="text-xs">
+                    <span className="text-gray-400 block font-bold">Margem de Lucro Bruta</span>
+                    <strong className="text-emerald-600 font-bold text-sm">{margin.toFixed(0)}%</strong>
+                  </div>
+                  <Badge variant={margin >= 60 ? 'success' : 'warning'}>
+                    {margin >= 60 ? 'Alta Rentabilidade' : 'Atenção Margem'}
+                  </Badge>
                 </div>
               </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+            );
+          })}
+        </div>
+      )}
 
-        {filteredServices.length === 0 && (
-          <div className="col-span-full py-20 text-center">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search size={32} className="text-slate-300" />
-            </div>
-            <h3 className="text-xl font-serif font-bold text-brand-navy">Nenhum serviço encontrado</h3>
-            <p className="text-slate-400 mt-2">Tente ajustar seus filtros ou busca.</p>
+      {/* Delete Confirmation Dialog */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            onKeyDown={e => e.key === 'Escape' && setDeleteConfirmId(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center"
+            >
+              <h3 id="delete-dialog-title" className="text-lg font-bold text-brand-navy">Excluir Procedimento?</h3>
+              <p className="text-xs text-gray-500 font-medium">Esta ação não pode ser desfeita. Deseja remover este serviço do catálogo?</p>
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="ghost" fullWidth onClick={() => setDeleteConfirmId(null)}>
+                  Cancelar
+                </Button>
+                <Button variant="danger" fullWidth onClick={() => confirmDelete(deleteConfirmId)}>
+                  Sim, Excluir
+                </Button>
+              </div>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* AI Suggestion Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <Card className="bg-gradient-to-br from-brand-pink/5 to-white border-brand-pink/20 p-8">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="w-16 h-16 rounded-2xl bg-brand-pink flex items-center justify-center text-white shrink-0 shadow-lg shadow-pink-100">
-              <DollarSign size={32} />
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <h4 className="text-xl font-serif font-bold text-brand-navy mb-2">Dica de Precificação</h4>
-              <p className="text-slate-500 font-medium">
-                Baseado no mercado atual, seu serviço de <span className="text-brand-pink font-bold">Alongamento em Fibra</span> poderia ter um reajuste de 10% sem perder clientes.
-              </p>
-            </div>
-            <Button variant="outline" className="border-brand-pink text-brand-pink hover:bg-brand-pink hover:text-white">
-              Analisar Preços
-            </Button>
-          </div>
-        </Card>
-      </motion.div>
+      {/* Create / Edit Service Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="service-modal-title"
+            onKeyDown={e => e.key === 'Escape' && setIsModalOpen(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] max-w-lg w-full p-8 relative shadow-2xl space-y-6"
+            >
+              <button 
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar modal"
+                className="absolute top-6 right-6 p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-brand-navy transition-colors"
+              >
+                <X size={20} />
+              </button>
 
-      {isModalOpen && (
-        <ServiceModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={(s) => {
-            onAdd(s);
-            setIsModalOpen(false);
-          }} 
-        />
-      )}
-    </div>
-  );
-}
+              <h2 id="service-modal-title" className="text-2xl font-serif font-bold text-brand-navy">
+                {editingService ? 'Editar Procedimento' : 'Novo Procedimento'}
+              </h2>
 
-function ServiceModal({ onClose, onSave }: { onClose: () => void, onSave: (s: Omit<Service, 'id'>) => void }) {
-  const [formData, setFormData] = useState<Omit<Service, 'id'>>({
-    name: '',
-    price: 0,
-    materialCost: 0,
-    duration: '',
-    category: 'Alongamento',
-    notes: ''
-  });
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="service-name" className="block text-xs font-bold text-gray-600 mb-1">Nome do Serviço *</label>
+                  <input 
+                    id="service-name"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Ex: Alongamento Fibra de Vidro"
+                    className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                  />
+                </div>
 
-  const [showCalculator, setShowCalculator] = useState(false);
-  
-  // Custom states for the Material Ficha Técnica
-  const [poteGel, setPoteGel] = useState({ price: 90, yield: 20 });
-  const [prepPrimer, setPrepPrimer] = useState({ price: 45, yield: 60 });
-  const [fibraMoldes, setFibraMoldes] = useState({ price: 40, yield: 50 });
-  const [lixaBroca, setLixaBroca] = useState({ price: 3, yield: 2 });
-  const [epiDescartaveis, setEpiDescartaveis] = useState(3.00);
-  const [topCoat, setTopCoat] = useState({ price: 50, yield: 25 });
-
-  const calculatedMaterialCost = React.useMemo(() => {
-    const gelCost = poteGel.yield > 0 ? (poteGel.price / poteGel.yield) : 0;
-    const prepCost = prepPrimer.yield > 0 ? (prepPrimer.price / prepPrimer.yield) : 0;
-    const fibraCost = fibraMoldes.yield > 0 ? (fibraMoldes.price / fibraMoldes.yield) : 0;
-    const lixaCost = lixaBroca.yield > 0 ? (lixaBroca.price / lixaBroca.yield) : 0;
-    const topCost = topCoat.yield > 0 ? (topCoat.price / topCoat.yield) : 0;
-
-    return Number((gelCost + prepCost + fibraCost + lixaCost + epiDescartaveis + topCost).toFixed(2));
-  }, [poteGel, prepPrimer, fibraMoldes, lixaBroca, epiDescartaveis, topCoat]);
-
-  const applyCalculatedCost = () => {
-    setFormData({ ...formData, materialCost: calculatedMaterialCost });
-    setShowCalculator(false);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-brand-navy/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl my-8"
-      >
-        <Card className="shadow-2xl border-none p-6 md:p-8 max-h-[90vh] overflow-y-auto bg-white rounded-[3rem]">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-serif font-bold text-brand-navy">Novo Procedimento</h2>
-            <Badge variant="primary" className="bg-pink-50 text-brand-pink font-bold border-none px-3 py-1">
-              {formData.category}
-            </Badge>
-          </div>
-          
-          <div className="space-y-6">
-            <Input 
-              label="Nome do Serviço / Procedimento"
-              placeholder="Ex: Alongamento em Fibra de Vidro (Completo)"
-              value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
-            />
-            
-            <div className="grid grid-cols-2 gap-6">
-              <Input 
-                label="Preço Cobrado de Venda (R$)"
-                type="number"
-                value={formData.price.toString()}
-                onChange={e => setFormData({...formData, price: Number(e.target.value)})}
-              />
-              <div>
-                <Input 
-                  label="Custo Estimado Material (R$)"
-                  type="number"
-                  value={formData.materialCost.toString()}
-                  onChange={e => setFormData({...formData, materialCost: Number(e.target.value)})}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCalculator(!showCalculator)}
-                  className="text-xs font-bold text-brand-pink hover:text-brand-pink/80 mt-1 flex items-center gap-1.5 transition-colors focus:outline-none"
-                >
-                  <Calculator size={12} />
-                  {showCalculator ? "Ocultar Calculadora" : "📐 Calcular com Ficha de Insumos"}
-                </button>
-              </div>
-            </div>
-
-            {/* Interactive Ficha de Insumos Accoridion */}
-            <AnimatePresence>
-              {showCalculator && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden bg-pink-50/40 rounded-3xl p-5 border border-pink-100 space-y-4"
-                >
-                  <div className="border-b border-pink-100 pb-2">
-                    <h3 className="font-serif font-bold text-brand-navy flex items-center gap-2 text-base">
-                      <Calculator size={16} className="text-brand-pink" />
-                      Ficha Técnica & Rendimento de Materiais
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-1">Calcule dinamicamente a fração de insumo gasta em cada atendimento.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="service-price" className="block text-xs font-bold text-gray-600 mb-1">Preço Cobrado (R$) *</label>
+                    <input 
+                      id="service-price"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      placeholder="180.00"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    {/* Gel Input */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm">
-                      <p className="font-bold text-brand-navy">Pote de Gel (Ex: 15g ou 30g)</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="Preço R$" 
-                          value={poteGel.price} 
-                          onChange={e => setPoteGel({ ...poteGel, price: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Atend. Úteis" 
-                          value={poteGel.yield} 
-                          onChange={e => setPoteGel({ ...poteGel, yield: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                      </div>
-                    </div>
+                  <div>
+                    <label htmlFor="service-cost" className="block text-xs font-bold text-gray-600 mb-1">Custo Insumos (R$)</label>
+                    <input 
+                      id="service-cost"
+                      type="number"
+                      step="0.01"
+                      value={materialCost}
+                      onChange={e => setMaterialCost(e.target.value)}
+                      placeholder="35.00"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
+                  </div>
+                </div>
 
-                    {/* Preps and Primers Input */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm">
-                      <p className="font-bold text-brand-navy">Desidratador / Prep / Primers</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="Preço R$" 
-                          value={prepPrimer.price} 
-                          onChange={e => setPrepPrimer({ ...prepPrimer, price: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Atend. Úteis" 
-                          value={prepPrimer.yield} 
-                          onChange={e => setPrepPrimer({ ...prepPrimer, yield: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Fibers and Forms */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm">
-                      <p className="font-bold text-brand-navy">Fibra de Vidro (mola/rolo) / Moldes</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="Preço R$" 
-                          value={fibraMoldes.price} 
-                          onChange={e => setFibraMoldes({ ...fibraMoldes, price: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Atend. Úteis" 
-                          value={fibraMoldes.yield} 
-                          onChange={e => setFibraMoldes({ ...fibraMoldes, yield: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Lixas / Brocas */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm">
-                      <p className="font-bold text-brand-navy">Lixas (Bloko/Banana) / Brocas</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="Preço R$" 
-                          value={lixaBroca.price} 
-                          onChange={e => setLixaBroca({ ...lixaBroca, price: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Atend. Úteis" 
-                          value={lixaBroca.yield} 
-                          onChange={e => setLixaBroca({ ...lixaBroca, yield: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Top Coat */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm">
-                      <p className="font-bold text-brand-navy">Top Coat & Selante (Finalizador)</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="Preço R$" 
-                          value={topCoat.price} 
-                          onChange={e => setTopCoat({ ...topCoat, price: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Atend. Úteis" 
-                          value={topCoat.yield} 
-                          onChange={e => setTopCoat({ ...topCoat, yield: Number(e.target.value) })}
-                          className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                        />
-                      </div>
-                    </div>
-
-                    {/* EPIs and Disposables flat */}
-                    <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-pink-100/30 shadow-sm justify-center flex flex-col">
-                      <p className="font-bold text-brand-navy">EPI (Mascara, Luvas, Touca, Wipes)</p>
-                      <input 
-                        type="number" 
-                        placeholder="Custo flat por cliente R$" 
-                        value={epiDescartaveis} 
-                        onChange={e => setEpiDescartaveis(Number(e.target.value))}
-                        className="p-2 border border-brand-border rounded-xl text-xs w-full outline-none" 
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="service-duration" className="block text-xs font-bold text-gray-600 mb-1">Duração Estimada</label>
+                    <input 
+                      id="service-duration"
+                      value={duration}
+                      onChange={e => setDuration(e.target.value)}
+                      placeholder="1h 30min"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
                   </div>
 
-                  <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-pink-100 shadow-sm">
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-extrabold uppercase">Custo Calculado por Atendimento</p>
-                      <p className="text-xl font-serif font-black text-brand-pink">{formatCurrency(calculatedMaterialCost)}</p>
-                    </div>
-                    <Button type="button" size="sm" onClick={applyCalculatedCost} className="bg-brand-navy text-white">
-                      Aplicar Custo na Ficha
-                    </Button>
+                  <div>
+                    <label htmlFor="service-category" className="block text-xs font-bold text-gray-600 mb-1">Categoria</label>
+                    <select 
+                      id="service-category"
+                      value={category}
+                      onChange={e => setCategory(e.target.value as ServiceCategory)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <Input 
-                label="Duração Média (Horas/Minutos)"
-                placeholder="Ex: 2h 30min"
-                value={formData.duration}
-                onChange={e => setFormData({...formData, duration: e.target.value})}
-              />
-              <Select 
-                label="Categoria do Procedimento"
-                value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value as ServiceCategory})}
-                options={CATEGORIES.map(cat => ({ value: cat, label: cat }))}
-              />
-            </div>
-            
-            <div className="flex gap-4 pt-6">
-              <Button type="button" variant="ghost" fullWidth onClick={onClose} className="text-slate-400">Cancelar</Button>
-              <Button type="button" fullWidth onClick={() => onSave(formData)} className="shadow-lg shadow-pink-100">Salvar Serviço</Button>
-            </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3">
+                  <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    {editingService ? 'Salvar Alterações' : 'Cadastrar Serviço'}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </Card>
-      </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

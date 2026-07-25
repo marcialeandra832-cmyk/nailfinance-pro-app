@@ -190,9 +190,16 @@ export function AuthPage() {
                 )}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-center gap-2 text-[11px] text-gray-400">
-                <Sparkles size={12} className="text-brand-primary" />
-                <span>Suporte Técnico: <strong>WhatsApp</strong></span>
+              <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center gap-2 text-xs text-gray-500">
+                <a 
+                  href="https://wa.me/5549999619123?text=Ol%C3%A1!%20Gostaria%20de%20comprar%20o%20plano%20do%20NailFinance%20ou%20tirar%20d%C3%BAvidas."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 font-bold text-brand-primary hover:underline"
+                >
+                  <Sparkles size={14} />
+                  <span>Dúvidas ou quer comprar um plano? Fale no WhatsApp</span>
+                </a>
               </div>
             </motion.div>
           </AnimatePresence>

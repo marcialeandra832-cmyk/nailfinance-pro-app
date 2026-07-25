@@ -1,6 +1,5 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * NailFinance Shared Type Definitions
  */
 
 export type TransactionType = 'entrada' | 'saída';
@@ -10,7 +9,6 @@ export type StudioCategory =
   | 'sinal' 
   | 'pacote' 
   | 'venda de produto' 
-  | 'outro'
   | 'esmaltes'
   | 'brocas'
   | 'lixas'
@@ -22,7 +20,8 @@ export type StudioCategory =
   | 'internet'
   | 'cursos'
   | 'marketing'
-  | 'manutenção';
+  | 'manutenção'
+  | 'outro';
 
 export type PersonalCategory = 
   | 'mercado'
@@ -81,4 +80,34 @@ export interface FinancialSummary {
   realProfit: number;
   profitMargin: number;
   personalBalance: number;
+  averageTicket: number;
+  studioEntriesCount: number;
+  revenueGoalProgress: number;
+  previousMonthRevenue: number;
+  revenueGrowthPercent: number;
+}
+
+export type SubscriptionPlanId = 'free' | 'mensal' | 'anual';
+export type SubscriptionStatus = 'active' | 'pending_payment' | 'overdue' | 'canceled' | 'expired';
+
+export interface UserSubscription {
+  planId: SubscriptionPlanId;
+  planName: string;
+  status: SubscriptionStatus;
+  purchasedAt?: string;
+  expiresAt?: string;
+  nextBillingAt?: string;
+  paymentMethod?: 'credit_card' | 'pix' | 'boleto' | 'kiwify';
+  kiwifyOrderId?: string;
+}
+
+export interface AIInsight {
+  type: 'success' | 'warning' | 'danger' | 'info';
+  title: string;
+  text: string;
+}
+
+export interface AIConsultationResponse {
+  insights: AIInsight[];
+  suggestion: string;
 }

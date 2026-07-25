@@ -1,252 +1,169 @@
-import React from 'react';
-import { User, Bell, Shield, Moon, Globe, Save, Crown, HelpCircle, MessageCircle, FileText, Camera, ChevronRight } from 'lucide-react';
-import { Card, Button, Input, Badge } from '../components/UI';
+import React, { useState } from 'react';
+import { 
+  User, 
+  Building, 
+  Target, 
+  DollarSign, 
+  Bell, 
+  ShieldCheck, 
+  Save, 
+  MessageCircle,
+  ExternalLink,
+  Lock
+} from 'lucide-react';
+import { Card, Button, Input } from '../components/UI';
 import { UserSettings } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
+import { getWhatsappSupportLink } from '../config/constants';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
 interface SettingsProps {
   settings: UserSettings;
-  onUpdate: (s: UserSettings) => void;
-  onNavigate?: (tab: string) => void;
+  onUpdate: (settings: Partial<UserSettings>) => void;
 }
 
-export function Settings({ settings, onUpdate, onNavigate }: SettingsProps) {
-  const [showSuccess, setShowSuccess] = React.useState(false);
+export function Settings({ settings, onUpdate }: SettingsProps) {
+  const [name, setName] = useState(settings.name || '');
+  const [studioName, setStudioName] = useState(settings.studioName || '');
+  const [revenueGoal, setRevenueGoal] = useState(String(settings.revenueGoal || 5000));
+  const [profitGoal, setProfitGoal] = useState(String(settings.profitGoal || 3000));
+  const [notifications, setNotifications] = useState(settings.notifications ?? true);
 
-  const handleChange = (field: keyof UserSettings, value: any) => {
-    onUpdate({ ...settings, [field]: value });
-    
-    if (field === 'notifications') {
-      toast.success(value ? 'Notificações ativadas' : 'Notificações desativadas');
-    }
-    if (field === 'darkMode') {
-      toast.info(value ? 'Modo escuro ativado' : 'Modo claro ativado');
-    }
-  };
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedRev = parseFloat(revenueGoal);
+    const parsedProf = parseFloat(profitGoal);
 
-  const handleSave = () => {
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    if (!name.trim()) {
+      toast.error('Informe seu nome.');
+      return;
+    }
+    if (isNaN(parsedRev) || parsedRev <= 0) {
+      toast.error('Informe uma meta de faturamento válida.');
+      return;
+    }
+
+    onUpdate({
+      name,
+      studioName,
+      revenueGoal: parsedRev,
+      profitGoal: isNaN(parsedProf) ? 0 : parsedProf,
+      notifications
+    });
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-10 pb-12">
+      {/* Header */}
       <header>
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-2"
-        >
-          <Badge variant="primary" className="mb-2">Configurações</Badge>
-          <h1 className="text-4xl font-bold text-brand-navy tracking-tight">
-            Personalize seu <span className="text-brand-primary italic font-serif">NailFinance</span>
-          </h1>
-          <p className="text-gray-500 max-w-md">
-            Ajuste suas metas, perfil e preferências para que o sistema trabalhe exatamente do seu jeito.
-          </p>
-        </motion.div>
+        <h1 className="text-3xl md:text-4xl font-serif font-bold text-brand-navy">Configurações do Studio</h1>
+        <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">Ajuste seu perfil, metas financeiras e preferências.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card title="Perfil Profissional" subtitle="Como você e seu studio aparecem no sistema">
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-center gap-8 p-6 bg-brand-bg rounded-[2rem] border border-brand-border">
-                  <div className="relative group">
-                    <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-brand-primary to-brand-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-brand-primary/20 transition-transform duration-500 group-hover:scale-105">
-                      {settings.name.charAt(0).toUpperCase()}
-                    </div>
-                    <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-300 border border-gray-100">
-                      <Camera size={18} />
-                    </button>
-                  </div>
-                  <div className="text-center sm:text-left space-y-2">
-                    <h3 className="text-xl font-bold text-brand-navy">{settings.name || "Sua Foto"}</h3>
-                    <p className="text-sm text-gray-500">Recomendamos uma foto profissional ou o logo do seu studio.</p>
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="h-9 px-4">Alterar foto</Button>
-                      <Button variant="ghost" size="sm" className="h-9 px-4 text-gray-400 hover:text-brand-danger">Remover</Button>
-                    </div>
-                  </div>
-                </div>
+      <form onSubmit={handleSave} className="space-y-8 max-w-4xl">
+        {/* Profile Card */}
+        <Card title="Perfil da Designer" subtitle="Dados do seu estúdio de unhas">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
+            <div>
+              <label htmlFor="set-name" className="block text-xs font-bold text-gray-600 mb-1">Seu Nome *</label>
+              <input 
+                id="set-name"
+                required
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Ex: Amanda Silva"
+                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+              />
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input 
-                    label="Seu Nome Completo"
-                    placeholder="Ex: Maria Silva"
-                    value={settings.name}
-                    onChange={e => handleChange('name', e.target.value)}
-                  />
-                  <Input 
-                    label="Nome do seu Studio"
-                    placeholder="Ex: Maria Nails & Beauty"
-                    value={settings.studioName}
-                    onChange={e => handleChange('studioName', e.target.value)}
-                  />
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card title="Metas Financeiras" subtitle="Defina onde você quer chegar este mês">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input 
-                  label="Meta de Faturamento Mensal"
-                  type="number"
-                  placeholder="R$ 0,00"
-                  value={settings.revenueGoal}
-                  onChange={e => handleChange('revenueGoal', Number(e.target.value))}
-                />
-                <Input 
-                  label="Meta de Lucro Mensal (Líquido)"
-                  type="number"
-                  placeholder="R$ 0,00"
-                  value={settings.profitGoal}
-                  onChange={e => handleChange('profitGoal', Number(e.target.value))}
-                />
-              </div>
-              <div className="mt-6 p-4 bg-pink-50 rounded-2xl flex items-start gap-3 border border-pink-100">
-                <Shield size={20} className="text-brand-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-brand-primary/80 leading-relaxed font-medium">
-                  <strong>Dica:</strong> Suas metas ajudam a IA a calcular o quanto você ainda precisa produzir para atingir sua liberdade financeira.
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card title="Preferências do Sistema" subtitle="Ajustes de interface e notificações">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-5 bg-brand-bg rounded-[1.5rem] border border-brand-border hover:bg-brand-bg/80 transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-brand-card rounded-xl flex items-center justify-center text-gray-400 group-hover:text-brand-primary transition-colors shadow-sm">
-                      <Moon size={20} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-brand-navy">Modo Escuro</p>
-                      <p className="text-xs text-gray-500">Interface com cores escuras para descanso visual</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer"
-                      checked={settings.darkMode}
-                      onChange={e => handleChange('darkMode', e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-5 bg-brand-bg rounded-[1.5rem] border border-brand-border hover:bg-brand-bg/80 transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-brand-card rounded-xl flex items-center justify-center text-gray-400 group-hover:text-brand-primary transition-colors shadow-sm">
-                      <Bell size={20} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-brand-navy">Notificações Inteligentes</p>
-                      <p className="text-xs text-gray-500">Alertas de custos elevados e metas atingidas</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer"
-                      checked={settings.notifications}
-                      onChange={e => handleChange('notifications', e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
-                  </label>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-
-          <div className="flex items-center justify-end gap-4 pt-4">
-            <AnimatePresence>
-              {showSuccess && (
-                <motion.span 
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="text-sm font-bold text-brand-success"
-                >
-                  Alterações salvas com sucesso!
-                </motion.span>
-              )}
-            </AnimatePresence>
-            <Button 
-              size="lg" 
-              className="px-10 shadow-xl shadow-brand-primary/20"
-              onClick={handleSave}
-            >
-              <Save size={20} />
-              Salvar Todas as Alterações
-            </Button>
+            <div>
+              <label htmlFor="set-studio" className="block text-xs font-bold text-gray-600 mb-1">Nome do Studio / Marca</label>
+              <input 
+                id="set-studio"
+                value={studioName}
+                onChange={e => setStudioName(e.target.value)}
+                placeholder="Ex: Amanda Nails Studio"
+                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+              />
+            </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="space-y-8">
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card title="Ajuda & Suporte">
-              <div className="space-y-2">
-                <button 
-                  onClick={() => onNavigate?.('faq')}
-                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <HelpCircle size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
-                    Central de Ajuda (FAQ)
-                  </div>
-                  <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
-                </button>
-                <button 
-                  onClick={() => {
-                    const message = encodeURIComponent('Olá! Preciso de suporte com o NailFinance.');
-                    window.open(`https://wa.me/5549999619123?text=${message}`, '_blank');
-                  }}
-                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <MessageCircle size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
-                    Falar com Suporte
-                  </div>
-                  <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
-                </button>
-                <button 
-                  onClick={() => toast.info('Os Termos de Uso estão disponíveis no contrato de adesão do serviço.')}
-                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-2xl text-sm font-bold text-brand-navy transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText size={18} className="text-gray-400 group-hover:text-brand-primary transition-colors" />
-                    Termos de Uso
-                  </div>
-                  <ChevronRight size={16} className="text-gray-200 group-hover:text-brand-primary transition-colors" />
-                </button>
+        {/* Goals Card */}
+        <Card title="Metas Financeiras Mensais" subtitle="Defina onde seu studio quer chegar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
+            <div>
+              <label htmlFor="set-revgoal" className="block text-xs font-bold text-gray-600 mb-1">Meta de Faturamento (R$) *</label>
+              <input 
+                id="set-revgoal"
+                type="number"
+                step="100"
+                required
+                value={revenueGoal}
+                onChange={e => setRevenueGoal(e.target.value)}
+                placeholder="5000"
+                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="set-profgoal" className="block text-xs font-bold text-gray-600 mb-1">Meta de Lucro Líquido (R$)</label>
+              <input 
+                id="set-profgoal"
+                type="number"
+                step="100"
+                value={profitGoal}
+                onChange={e => setProfitGoal(e.target.value)}
+                placeholder="3000"
+                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-gray-50 text-brand-navy font-bold text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Preferences */}
+        <Card title="Notificações e Suporte">
+          <div className="space-y-6 mt-4">
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="space-y-0.5">
+                <span className="font-bold text-sm text-brand-navy block">Lembretes Financeiros</span>
+                <span className="text-xs text-gray-500 font-medium">Alertas de fechamento de caixa e atingimento de metas.</span>
               </div>
-            </Card>
-          </motion.div>
+              <input 
+                type="checkbox"
+                aria-label="Ativar lembretes financeiros"
+                checked={notifications}
+                onChange={e => setNotifications(e.target.checked)}
+                className="w-5 h-5 accent-brand-pink cursor-pointer"
+              />
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pink-50/60 border border-pink-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="font-serif font-bold text-base text-brand-navy block">Precisa de Suporte Técnico?</span>
+                <span className="text-xs text-gray-600 font-medium">Atendimento direto com nossa equipe via WhatsApp oficial.</span>
+              </div>
+              <a 
+                href={getWhatsappSupportLink("Olá! Preciso de ajuda com minhas configurações no NailFinance.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center gap-2 shadow-sm transition-colors"
+              >
+                <MessageCircle size={16} />
+                Suporte WhatsApp
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        </Card>
+
+        <div className="flex justify-end pt-2">
+          <Button type="submit" size="lg" className="px-10 font-bold shadow-lg shadow-pink-200">
+            <Save size={18} className="mr-2" />
+            Salvar Configurações
+          </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
