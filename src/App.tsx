@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { useFinance } from './hooks/useFinance';
@@ -27,13 +27,26 @@ function MainLayout({ children, user, settings, selectedMonth, prevMonth, nextMo
   const navigate = useNavigate();
   const [globalSearch, setGlobalSearch] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Search results
   const matchedServices = (services || []).filter((s: any) => 
-    globalSearch.trim() && s.name.toLowerCase().includes(globalSearch.toLowerCase())
+    globalSearch.trim() && (s?.name || '').toLowerCase().includes(globalSearch.toLowerCase())
   );
   const matchedTransactions = (monthTransactions || []).filter((t: any) => 
-    globalSearch.trim() && t.description.toLowerCase().includes(globalSearch.toLowerCase())
+    globalSearch.trim() && (t?.description || '').toLowerCase().includes(globalSearch.toLowerCase())
   );
 
   const hasSearchMatches = matchedServices.length > 0 || matchedTransactions.length > 0;
@@ -61,7 +74,7 @@ function MainLayout({ children, user, settings, selectedMonth, prevMonth, nextMo
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             
             {/* Global Search Input */}
-            <div className="relative hidden md:block w-full max-w-md">
+            <div ref={searchContainerRef} className="relative hidden md:block w-full max-w-md">
               <div className="flex items-center gap-3 bg-white border border-brand-border/80 px-4 py-2.5 rounded-2xl w-full group focus-within:shadow-md focus-within:border-brand-pink transition-all">
                 <Search size={18} className="text-gray-400 group-focus-within:text-brand-pink transition-colors shrink-0" />
                 <input 
